@@ -197,13 +197,13 @@ func (bat *Batch) WriteTo(w io.Writer) (n int64, err error) {
 	// 	return
 	// }
 	// n += int64(nr)
-	buffer.Append(types.EncodeFixed(uint16(len(bat.Vecs))))
+	buffer.AppendStl(types.EncodeFixed(uint16(len(bat.Vecs))))
 
 	// 2. Types and Names
 	for i, vec := range bat.Vecs {
-		buffer.Append([]byte(bat.Attrs[i]))
+		buffer.AppendStl([]byte(bat.Attrs[i]))
 		vt := vec.GetType()
-		buffer.Append(types.EncodeType(&vt))
+		buffer.AppendStl(types.EncodeType(&vt))
 	}
 	if tmpn, err = buffer.WriteTo(w); err != nil {
 		return
@@ -248,17 +248,17 @@ func (bat *Batch) ReadFrom(r io.Reader) (n int64, err error) {
 	}
 	n += tmpn
 	pos := 0
-	buf := buffer.Get(pos)
+	buf := buffer.GetStl(pos)
 	pos++
 	cnt := types.DecodeFixed[uint16](buf)
 	vecTypes := make([]types.Type, cnt)
 	bat.Attrs = make([]string, cnt)
 	for i := 0; i < int(cnt); i++ {
-		buf = buffer.Get(pos)
+		buf = buffer.GetStl(pos)
 		pos++
 		bat.Attrs[i] = string(buf)
 		bat.nameidx[bat.Attrs[i]] = i
-		buf = buffer.Get(pos)
+		buf = buffer.GetStl(pos)
 		vecTypes[i] = types.DecodeType(buf)
 		pos++
 	}
