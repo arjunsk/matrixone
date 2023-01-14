@@ -16,17 +16,17 @@ package containers
 
 import (
 	"bytes"
-	"io"
-	"unsafe"
-
 	"github.com/RoaringBitmap/roaring"
 	"github.com/RoaringBitmap/roaring/roaring64"
 	"github.com/matrixorigin/matrixone/pkg/common/mpool"
 	"github.com/matrixorigin/matrixone/pkg/compress"
 	"github.com/matrixorigin/matrixone/pkg/container/types"
 	"github.com/matrixorigin/matrixone/pkg/vm/engine/tae/common"
+	"github.com/matrixorigin/matrixone/pkg/vm/engine/tae/containers/cn_vector_adapter"
 	"github.com/matrixorigin/matrixone/pkg/vm/engine/tae/stl"
-	"github.com/matrixorigin/matrixone/pkg/vm/engine/tae/stl/containers"
+	"io"
+	"unsafe"
+	//"github.com/matrixorigin/matrixone/pkg/vm/engine/tae/stl/containers"
 )
 
 type internalVector interface {
@@ -43,17 +43,19 @@ type vector[T any] struct {
 	roStorage []byte
 }
 
-func NewVector[T any](typ types.Type, nullable bool, opts ...Options) *vector[T] {
-	vec := &vector[T]{
-		stlvec: containers.NewVector[T](opts...),
-		typ:    typ,
-	}
-	if nullable {
-		vec.impl = newNullableVecImpl(vec)
-	} else {
-		vec.impl = newVecImpl(vec)
-	}
-	return vec
+func NewVector[T any](typ types.Type, nullable bool, opts ...Options) *cn_vector_adapter.CnVector[T] {
+	// Entry Point - 1
+	return (*cn_vector_adapter.CnVector[T])(cn_vector_adapter.NewContainerVector(typ, nullable, opts...))
+	//vec := &vector[T]{
+	//	stlvec: containers.NewVector[T](opts...),
+	//	typ:    typ,
+	//}
+	//if nullable {
+	//	vec.impl = newNullableVecImpl(vec)
+	//} else {
+	//	vec.impl = newVecImpl(vec)
+	//}
+	//return vec
 }
 
 // func NewEmptyVector[T any](typ types.Type, opts ...*Options) *vector[T] {
@@ -140,7 +142,7 @@ func (vec *vector[T]) CloneWindow(offset, length int, allocator ...*mpool.MPool)
 	} else {
 		opts.Allocator = allocator[0]
 	}
-	cloned := NewVector[T](vec.typ, vec.Nullable(), opts)
+	cloned := cn_vector_adapter.NewContainerVector[T](vec.typ, vec.Nullable(), opts)
 	if vec.nulls != nil {
 		if offset == 0 || length == vec.Length() {
 			cloned.nulls = vec.nulls.Clone()

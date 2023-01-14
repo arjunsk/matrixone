@@ -16,6 +16,7 @@ package containers
 
 import (
 	"bytes"
+	"github.com/matrixorigin/matrixone/pkg/vm/engine/tae/containers/cn_vector_adapter"
 	"io"
 
 	"github.com/matrixorigin/matrixone/pkg/container/types"
@@ -29,7 +30,7 @@ func GetValueFrom[T types.FixedSizeT](tool *CodecTool, i int) (v T) {
 }
 
 type CodecTool struct {
-	storage *vector[[]byte]
+	storage *cn_vector_adapter.CnVector[[]byte]
 }
 
 func NewCodecTool() *CodecTool {

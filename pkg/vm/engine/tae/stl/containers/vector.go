@@ -14,15 +14,22 @@
 
 package containers
 
+import (
+	"github.com/matrixorigin/matrixone/pkg/vm/engine/tae/containers/cn_vector_adapter"
+)
+
 func NewVector[T any](opts ...Options) *Vector[T] {
-	var v T
-	_, ok := any(v).([]byte)
-	if !ok {
-		return &Vector[T]{
-			Vector: NewStdVector[T](opts...),
-		}
-	}
+
+	// Entry Point - 2
 	return &Vector[T]{
-		Vector: NewStrVector[T](opts...),
+		Vector: cn_vector_adapter.NewStlVector[T](opts...),
 	}
+
+	//var v T
+	//_, ok := any(v).([]byte)
+	//if !ok {
+	//	return &CnVector[T]{
+	//		CnVector: NewStdVector[T](opts...),
+	//	}
+	//}
 }
