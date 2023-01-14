@@ -2,6 +2,7 @@ package containers
 
 import (
 	"github.com/matrixorigin/matrixone/pkg/common/mpool"
+	"github.com/matrixorigin/matrixone/pkg/container/types"
 	cnVector "github.com/matrixorigin/matrixone/pkg/container/vector"
 	"github.com/matrixorigin/matrixone/pkg/vm/engine/tae/common"
 	"github.com/matrixorigin/matrixone/pkg/vm/engine/tae/containers"
@@ -15,8 +16,30 @@ type CnStlVector[T any] struct {
 }
 
 func NewStlVector[T any](opts ...containers.Options) *CnStlVector[T] {
-	vec := &CnStlVector[T]{}
+	vec := &CnStlVector[T]{
+		downstreamVector: cnVector.New(types.New(T)),
+	}
 	return vec
+}
+
+func (vec CnStlVector[T]) Data() []byte {
+	return vec.Data()
+}
+
+func (vec CnStlVector[T]) Length() int {
+	return vec.Length()
+}
+
+func (vec CnStlVector[T]) Get(i int) (v T) {
+	return vec.downstreamVector.GetBytes(i)
+}
+
+func (vec CnStlVector[T]) String() string {
+	return vec.downstreamVector.String()
+}
+
+func (vec CnStlVector[T]) Allocated() int {
+	return vec.downstreamVector.Length()
 }
 
 func (vec CnStlVector[T]) Close() {
@@ -54,11 +77,6 @@ func (vec CnStlVector[T]) WindowAsBytes(offset, length int) *stl.Bytes {
 	panic("implement me")
 }
 
-func (vec CnStlVector[T]) Data() []byte {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (vec CnStlVector[T]) DataWindow(offset, length int) []byte {
 	//TODO implement me
 	panic("implement me")
@@ -75,11 +93,6 @@ func (vec CnStlVector[T]) SlicePtr() unsafe.Pointer {
 }
 
 func (vec CnStlVector[T]) SliceWindow(offset, length int) []T {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (vec CnStlVector[T]) Get(i int) (v T) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -125,21 +138,6 @@ func (vec CnStlVector[T]) GetAllocator() *mpool.MPool {
 }
 
 func (vec CnStlVector[T]) Capacity() int {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (vec CnStlVector[T]) Length() int {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (vec CnStlVector[T]) Allocated() int {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (vec CnStlVector[T]) String() string {
 	//TODO implement me
 	panic("implement me")
 }
