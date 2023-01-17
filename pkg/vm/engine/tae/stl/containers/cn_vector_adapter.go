@@ -2,10 +2,8 @@ package containers
 
 import (
 	"github.com/matrixorigin/matrixone/pkg/common/mpool"
-	"github.com/matrixorigin/matrixone/pkg/container/types"
 	cnVector "github.com/matrixorigin/matrixone/pkg/container/vector"
 	"github.com/matrixorigin/matrixone/pkg/vm/engine/tae/common"
-	"github.com/matrixorigin/matrixone/pkg/vm/engine/tae/containers"
 	"github.com/matrixorigin/matrixone/pkg/vm/engine/tae/stl"
 	"io"
 	"unsafe"
@@ -13,25 +11,38 @@ import (
 
 type CnStlVector[T any] struct {
 	downstreamVector *cnVector.Vector
+	mpool            *mpool.MPool
 }
 
-func NewStlVector[T any](opts ...containers.Options) *CnStlVector[T] {
+func NewStlVector[T any](opts ...Options) *CnStlVector[T] {
 	vec := &CnStlVector[T]{
-		downstreamVector: cnVector.New(types.New(T)),
+		//downstreamVector: cnVector.New(types.DecodeType()),
+		mpool: opts[0].Allocator,
 	}
+
 	return vec
 }
 
+func (vec CnStlVector[T]) Append(v T) {
+	err := vec.downstreamVector.Append(v, false, vec.mpool)
+	if err != nil {
+		return
+	}
+}
+
 func (vec CnStlVector[T]) Data() []byte {
-	return vec.Data()
+	data, _ := vec.downstreamVector.Show()
+	return data
 }
 
 func (vec CnStlVector[T]) Length() int {
-	return vec.Length()
+	return vec.downstreamVector.Length()
 }
 
 func (vec CnStlVector[T]) Get(i int) (v T) {
-	return vec.downstreamVector.GetBytes(i)
+	//return vec.downstreamVector.GetBytes(i)
+	//TODO implement me
+	panic("implement me")
 }
 
 func (vec CnStlVector[T]) String() string {
@@ -43,8 +54,7 @@ func (vec CnStlVector[T]) Allocated() int {
 }
 
 func (vec CnStlVector[T]) Close() {
-	//TODO implement me
-	panic("implement me")
+	vec.downstreamVector.Free(vec.mpool)
 }
 
 func (vec CnStlVector[T]) Clone(offset, length int, allocator ...*mpool.MPool) stl.Vector[T] {
@@ -93,11 +103,6 @@ func (vec CnStlVector[T]) SlicePtr() unsafe.Pointer {
 }
 
 func (vec CnStlVector[T]) SliceWindow(offset, length int) []T {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (vec CnStlVector[T]) Append(v T) {
 	//TODO implement me
 	panic("implement me")
 }
