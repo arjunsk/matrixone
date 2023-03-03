@@ -47,6 +47,11 @@ func (m *MemCache) Read(
 ) (
 	err error,
 ) {
+	//TODO: another design is to introduce batching flag in the SpanOption and modify trace logging logic itself.
+	// I think, this approach is more clean.
+	//_, span := trace.Start(ctx, "MemCache.Read", trace.WithBatching(true))
+	//span.End()
+
 	m.bTrace.Start(ctx, "MemCache.Read")
 	defer m.bTrace.End("MemCache.Read")
 
