@@ -17,19 +17,25 @@ package fileservice
 import (
 	"context"
 	"sync/atomic"
+	"time"
 
 	"github.com/matrixorigin/matrixone/pkg/util/trace"
 )
 
 type MemCache struct {
-	lru   *LRU
-	stats *CacheStats
+	lru    *LRU
+	stats  *CacheStats
+	aTrace *trace.AsyncTrace
 }
 
 func NewMemCache(capacity int64) *MemCache {
+	//TODO: could be passed from config file.
+	asyncTraceDuration := 1 * time.Minute
+
 	return &MemCache{
-		lru:   NewLRU(capacity),
-		stats: new(CacheStats),
+		lru:    NewLRU(capacity),
+		stats:  new(CacheStats),
+		aTrace: trace.NewAsyncTrace(asyncTraceDuration),
 	}
 }
 
@@ -41,8 +47,8 @@ func (m *MemCache) Read(
 ) (
 	err error,
 ) {
-	_, span := trace.Start(ctx, "MemCache.Read")
-	defer span.End()
+	m.aTrace.Start(ctx, "MemCache.Read")
+	defer m.aTrace.End("MemCache.Read")
 
 	numHit := 0
 	defer func() {
