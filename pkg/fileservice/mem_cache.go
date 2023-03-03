@@ -30,7 +30,7 @@ type MemCache struct {
 
 func NewMemCache(capacity int64) *MemCache {
 	//TODO: could be passed from config file.
-	asyncTraceDuration := 1 * time.Minute
+	asyncTraceDuration := 1 * time.Second
 
 	return &MemCache{
 		lru:    NewLRU(capacity),
