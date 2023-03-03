@@ -25,7 +25,7 @@ import (
 type MemCache struct {
 	lru    *LRU
 	stats  *CacheStats
-	aTrace *trace.AsyncTrace
+	bTrace *trace.BatchedTrace
 }
 
 func NewMemCache(capacity int64) *MemCache {
@@ -35,7 +35,7 @@ func NewMemCache(capacity int64) *MemCache {
 	return &MemCache{
 		lru:    NewLRU(capacity),
 		stats:  new(CacheStats),
-		aTrace: trace.NewAsyncTrace(asyncTraceDuration),
+		bTrace: trace.NewBatchedTrace(asyncTraceDuration),
 	}
 }
 
@@ -47,8 +47,8 @@ func (m *MemCache) Read(
 ) (
 	err error,
 ) {
-	m.aTrace.Start(ctx, "MemCache.Read")
-	defer m.aTrace.End("MemCache.Read")
+	m.bTrace.Start(ctx, "MemCache.Read")
+	defer m.bTrace.End("MemCache.Read")
 
 	numHit := 0
 	defer func() {
