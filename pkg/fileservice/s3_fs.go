@@ -19,7 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/matrixorigin/matrixone/pkg/util/metric"
+	"github.com/matrixorigin/matrixone/pkg/common/bmetrics"
 	"io"
 	"math"
 	stdhttp "net/http"
@@ -329,7 +329,7 @@ func (s *S3FS) Read(ctx context.Context, vector *IOVector) (err error) {
 	default:
 	}
 
-	metric.S3ReadCounter().Inc()
+	bmetrics.Get().Incr("S3FsRead")
 
 	if len(vector.Entries) == 0 {
 		return moerr.NewEmptyVectorNoCtx()
