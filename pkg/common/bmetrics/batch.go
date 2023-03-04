@@ -14,8 +14,8 @@ type Counter struct {
 
 type BatchedMetrics struct {
 	sync.Mutex
-	metrics       map[string]Counter
-	batchDuration time.Duration
+	metricCounters map[string]Counter
+	batchInterval  time.Duration
 }
 
 var (
@@ -26,59 +26,48 @@ var (
 func Get() *BatchedMetrics {
 	setupOnce.Do(func() {
 		batchDuration := time.Second
-		metrics = createBatch(batchDuration)
+		metrics = createBatchedMetrics(batchDuration)
 	})
 
 	return metrics
 }
 
-func createBatch(batchDuration time.Duration) *BatchedMetrics {
+func createBatchedMetrics(batchDuration time.Duration) *BatchedMetrics {
 	o := &BatchedMetrics{
-		metrics:       make(map[string]Counter),
-		batchDuration: batchDuration,
+		metricCounters: make(map[string]Counter),
+		batchInterval:  batchDuration,
 	}
 	registerMetrics(o)
-	go o.startAsyncPublisher()
+	go o.startBackgroundPublisher()
 	return o
 }
 
 func registerMetrics(o *BatchedMetrics) {
-	o.metrics["MemCacheRead"] = Counter{localCounter: atomic.NewFloat64(0), globalCounter: metric.MemCacheReadCounter()}
-	o.metrics["S3FsRead"] = Counter{localCounter: atomic.NewFloat64(0), globalCounter: metric.S3ReadCounter()}
+	o.metricCounters["MemCacheRead"] = Counter{localCounter: atomic.NewFloat64(0), globalCounter: metric.MemCacheReadCounter()}
+	o.metricCounters["S3FsRead"] = Counter{localCounter: atomic.NewFloat64(0), globalCounter: metric.S3ReadCounter()}
 }
 
 func (b *BatchedMetrics) Incr(metricName string) {
-	b.metrics[metricName].localCounter.Add(1)
+	b.metricCounters[metricName].localCounter.Add(1)
 }
 
-func (b *BatchedMetrics) ResetLocalCounters() {
+func (b *BatchedMetrics) MergeAndReset() {
 	b.Lock()
 	defer b.Unlock()
-	for _, v := range b.metrics {
+	for _, v := range b.metricCounters {
+		v.globalCounter.Add(v.localCounter.Load())
 		v.localCounter.Store(0)
 	}
 }
 
-func (b *BatchedMetrics) MergeCounters() {
-	for _, v := range b.metrics {
-		v.globalCounter.Add(v.localCounter.Load())
-	}
-}
-
-func (b *BatchedMetrics) startAsyncPublisher() {
-	ticker := time.NewTicker(b.batchDuration)
+func (b *BatchedMetrics) startBackgroundPublisher() {
+	ticker := time.NewTicker(b.batchInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			{
-				b.MergeCounters()
-				b.ResetLocalCounters()
-
-				ticker.Reset(b.batchDuration)
-				continue
-			}
+			b.MergeAndReset()
 		}
 	}
 }
