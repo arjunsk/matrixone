@@ -12,18 +12,18 @@ type Counter struct {
 	globalCounter metric.Counter
 }
 
-type Metrics struct {
+type BatchedMetrics struct {
 	sync.Mutex
-	metrics  map[string]Counter
-	duration time.Duration
+	metrics       map[string]Counter
+	batchDuration time.Duration
 }
 
 var (
-	metrics   *Metrics
+	metrics   *BatchedMetrics
 	setupOnce sync.Once
 )
 
-func Get() *Metrics {
+func Get() *BatchedMetrics {
 	setupOnce.Do(func() {
 		batchDuration := time.Second
 		metrics = createBatch(batchDuration)
@@ -32,26 +32,26 @@ func Get() *Metrics {
 	return metrics
 }
 
-func createBatch(batchDuration time.Duration) *Metrics {
-	o := &Metrics{
-		metrics:  make(map[string]Counter),
-		duration: batchDuration,
+func createBatch(batchDuration time.Duration) *BatchedMetrics {
+	o := &BatchedMetrics{
+		metrics:       make(map[string]Counter),
+		batchDuration: batchDuration,
 	}
 	registerMetrics(o)
 	go o.startAsyncPublisher()
 	return o
 }
 
-func registerMetrics(o *Metrics) {
+func registerMetrics(o *BatchedMetrics) {
 	o.metrics["MemCacheRead"] = Counter{localCounter: atomic.NewFloat64(0), globalCounter: metric.MemCacheReadCounter()}
 	o.metrics["S3FsRead"] = Counter{localCounter: atomic.NewFloat64(0), globalCounter: metric.S3ReadCounter()}
 }
 
-func (b *Metrics) Incr(metricName string) {
+func (b *BatchedMetrics) Incr(metricName string) {
 	b.metrics[metricName].localCounter.Add(1)
 }
 
-func (b *Metrics) ResetLocalCounters() {
+func (b *BatchedMetrics) ResetLocalCounters() {
 	b.Lock()
 	defer b.Unlock()
 	for _, v := range b.metrics {
@@ -59,14 +59,14 @@ func (b *Metrics) ResetLocalCounters() {
 	}
 }
 
-func (b *Metrics) MergeCounters() {
+func (b *BatchedMetrics) MergeCounters() {
 	for _, v := range b.metrics {
 		v.globalCounter.Add(v.localCounter.Load())
 	}
 }
 
-func (b *Metrics) startAsyncPublisher() {
-	ticker := time.NewTicker(b.duration)
+func (b *BatchedMetrics) startAsyncPublisher() {
+	ticker := time.NewTicker(b.batchDuration)
 	defer ticker.Stop()
 
 	for {
@@ -76,7 +76,7 @@ func (b *Metrics) startAsyncPublisher() {
 				b.MergeCounters()
 				b.ResetLocalCounters()
 
-				ticker.Reset(b.duration)
+				ticker.Reset(b.batchDuration)
 				continue
 			}
 		}
