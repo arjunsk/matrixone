@@ -40,7 +40,7 @@ func (m *MemCache) Read(
 ) (
 	err error,
 ) {
-	bmetrics.Get().Incr("MemCacheRead")
+	bmetrics.GetInstance().GetCounter("MemCacheRead").Incr()
 
 	numHit := 0
 	defer func() {

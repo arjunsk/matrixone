@@ -1,14 +1,27 @@
+// Copyright 2023 Matrix Origin
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package bmetrics
 
 import (
 	"github.com/matrixorigin/matrixone/pkg/util/metric"
-	"go.uber.org/atomic"
 	"sync"
 	"time"
 )
 
 type Counter struct {
-	localCounter  *atomic.Float64
+	localCounter  *MetricCounter
 	globalCounter metric.Counter
 }
 
@@ -23,7 +36,7 @@ var (
 	setupOnce sync.Once
 )
 
-func Get() *BatchedMetrics {
+func GetInstance() *BatchedMetrics {
 	setupOnce.Do(func() {
 		batchDuration := time.Second
 		metrics = createBatchedMetrics(batchDuration)
@@ -43,20 +56,20 @@ func createBatchedMetrics(batchDuration time.Duration) *BatchedMetrics {
 }
 
 func registerMetrics(o *BatchedMetrics) {
-	o.metricCounters["MemCacheRead"] = Counter{localCounter: atomic.NewFloat64(0), globalCounter: metric.MemCacheReadCounter()}
-	o.metricCounters["S3FsRead"] = Counter{localCounter: atomic.NewFloat64(0), globalCounter: metric.S3ReadCounter()}
+	o.metricCounters["MemCacheRead"] = Counter{localCounter: NewCounter(), globalCounter: metric.MemCacheReadCounter()}
+	o.metricCounters["S3FsRead"] = Counter{localCounter: NewCounter(), globalCounter: metric.S3ReadCounter()}
 }
 
-func (b *BatchedMetrics) Incr(metricName string) {
-	b.metricCounters[metricName].localCounter.Add(1)
+func (b *BatchedMetrics) GetCounter(metricName string) *MetricCounter {
+	return b.metricCounters[metricName].localCounter
 }
 
 func (b *BatchedMetrics) MergeAndReset() {
-	b.Lock()
-	defer b.Unlock()
 	for _, v := range b.metricCounters {
+		b.Lock()
 		v.globalCounter.Add(v.localCounter.Load())
-		v.localCounter.Store(0)
+		v.localCounter.Reset()
+		b.Unlock()
 	}
 }
 

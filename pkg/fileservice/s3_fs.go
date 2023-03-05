@@ -329,7 +329,7 @@ func (s *S3FS) Read(ctx context.Context, vector *IOVector) (err error) {
 	default:
 	}
 
-	bmetrics.Get().Incr("S3FsRead")
+	bmetrics.GetInstance().GetCounter("S3FsRead").Incr()
 
 	if len(vector.Entries) == 0 {
 		return moerr.NewEmptyVectorNoCtx()
