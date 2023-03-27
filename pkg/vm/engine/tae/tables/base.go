@@ -329,7 +329,7 @@ func (blk *baseBlock) ResolvePersistedColumnData(
 	defer blk.RUnlock()
 	err = blk.FillInMemoryDeletesLocked(view.BaseView, blk.RWMutex)
 	if view.BaseView.DeleteMask != nil {
-		view.SetData(vec.CloneWindow(0, vec.Length(), nil))
+		view.SetData(vec.CloneWindow(0, vec.Length(), common.DefaultAllocator))
 		vec.Close()
 	}
 	return
