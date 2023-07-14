@@ -409,6 +409,10 @@ func constructByte(obj interface{}, bat *batch.Batch, index int32, ByteChan chan
 			case types.T_json:
 				val := types.DecodeJson(vec.GetBytesAt(i))
 				writeByte = appendBytes(writeByte, []byte(val.String()), symbol[j], closeby, flag[j])
+			case types.T_f32vec:
+				// TODO: core change
+				value := vec.GetBytesAt(i)
+				writeByte = appendBytes(writeByte, value, symbol[j], closeby, true)
 			case types.T_bool:
 				val := vector.GetFixedAt[bool](vec, i)
 				if val {

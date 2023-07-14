@@ -436,6 +436,10 @@ func getValueFromVector(vec *vector.Vector, ses *Session, expr *plan2.Expr) (int
 		val := vec.GetBytesAt(0)
 		byteJson := types.DecodeJson(val)
 		return byteJson.String(), nil
+	case types.T_f32vec:
+		val := vec.GetBytesAt(0)
+		f32vec := types.DecodeF32Vec(val)
+		return f32vec, nil
 	case types.T_uuid:
 		val := vector.MustFixedCol[types.Uuid](vec)[0]
 		return val.ToString(), nil

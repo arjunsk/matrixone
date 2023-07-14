@@ -515,6 +515,8 @@ func NewFunctionResultWrapper(
 		return newResultFunc[types.Varlena](v, getVectorMethod, putVectorMethod, mp)
 	case types.T_json:
 		return newResultFunc[types.Varlena](v, getVectorMethod, putVectorMethod, mp)
+	case types.T_f32vec:
+		return newResultFunc[types.Varlena](v, getVectorMethod, putVectorMethod, mp)
 	}
 
 	switch typ.Oid {

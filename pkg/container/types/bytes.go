@@ -30,6 +30,7 @@ const (
 	MaxCharLen        = 255
 	MaxBinaryLen      = 255
 	MaxVarBinaryLen   = 65535
+	MaxVectorLen      = 65535 // 16000 based on pg_vector
 )
 
 func (v *Varlena) UnsafePtr() unsafe.Pointer {

@@ -424,6 +424,12 @@ func GenRows(bat *batch.Batch) [][]any {
 			for j := 0; j < vec.Length(); j++ {
 				rows[j][i] = vec.GetBytesAt(j)
 			}
+		case types.T_f32vec:
+			for j := 0; j < vec.Length(); j++ {
+				//TODO: should it be vector.MustFixedCol[types.T_f32vec](vec) etc ?
+				// Not much impact as it is used with Catalog
+				rows[j][i] = vec.GetBytesAt(j)
+			}
 		default:
 			panic(fmt.Sprintf("unspported type: %v", vec.GetType()))
 		}

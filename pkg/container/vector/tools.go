@@ -312,6 +312,7 @@ func (v *Vector) CompareAndCheckIntersect(vec *Vector) (bool, error) {
 		}, func(t1, t2 string) bool {
 			return strings.Compare(t1, t2) <= 0
 		})
+		//TODO: What changes here?
 	}
 	return false, moerr.NewInternalErrorNoCtx("unsupport type to check intersect")
 }
@@ -487,6 +488,7 @@ func (v *Vector) CompareAndCheckAnyResultIsTrue(ctx context.Context, vec *Vector
 				return strings.Compare(t1, t2) <= 0
 			}), nil
 		}
+		//TODO: What changes here?
 	default:
 		return false, moerr.NewInternalErrorNoCtx("unsupport compare type")
 	}

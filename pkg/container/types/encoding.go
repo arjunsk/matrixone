@@ -20,6 +20,7 @@ package types
 import (
 	"bytes"
 	"encoding"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"unsafe"
@@ -91,6 +92,21 @@ func DecodeJson(buf []byte) bytejson.ByteJson {
 	//TODO handle error
 	_ = bj.Unmarshal(buf)
 	return bj
+}
+
+func EncodeF32Vec(data []float32) []byte {
+	buf := new(bytes.Buffer)
+	dim := uint16(len(data))
+	_ = binary.Write(buf, binary.BigEndian, dim)
+	_ = binary.Write(buf, binary.BigEndian, data)
+	return buf.Bytes()
+}
+
+func DecodeF32Vec(buf []byte) []float32 {
+	dim := binary.BigEndian.Uint16(buf[:2])
+	vec := make([]float32, dim)
+	_ = binary.Read(bytes.NewReader(buf[2:]), binary.BigEndian, &vec)
+	return vec
 }
 
 func EncodeType(v *Type) []byte {
@@ -341,6 +357,9 @@ func DecodeValue(val []byte, t T) any {
 		return DecodeFixed[Rowid](val)
 	case T_char, T_varchar, T_blob, T_json, T_text, T_binary, T_varbinary:
 		return val
+	case T_f32vec:
+		//Not used
+		return val
 	default:
 		panic(fmt.Sprintf("unsupported type %v", t))
 	}
@@ -389,6 +408,9 @@ func EncodeValue(val any, t T) []byte {
 	case T_Rowid:
 		return EncodeFixed(val.(Rowid))
 	case T_char, T_varchar, T_blob, T_json, T_text, T_binary, T_varbinary:
+		return val.([]byte)
+	case T_f32vec:
+		//TODO: Should we treat vector as []byte or vector<vector> ?
 		return val.([]byte)
 	default:
 		panic(fmt.Sprintf("unsupported type %v", t))

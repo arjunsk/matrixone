@@ -138,7 +138,16 @@ func New(typ types.Type, desc, nullsLast bool) Compare {
 			vs:          make([]*vector.Vector, 2),
 			isConstNull: make([]bool, 2),
 		}
+	case types.T_f32vec:
+		//TODO: need to discuss comparator
+		return &strCompare{
+			desc:        desc,
+			nullsLast:   nullsLast,
+			vs:          make([]*vector.Vector, 2),
+			isConstNull: make([]bool, 2),
+		}
 	}
+
 	return nil
 }
 

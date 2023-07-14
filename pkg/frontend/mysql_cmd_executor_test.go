@@ -512,6 +512,7 @@ func Test_getDataFromPipeline(t *testing.T) {
 					types.T_time.ToType(),
 					types.T_datetime.ToType(),
 					types.T_json.ToType(),
+					types.T_f32vec.ToType(),
 				},
 				3)
 		}
@@ -587,6 +588,7 @@ func Test_getDataFromPipeline(t *testing.T) {
 					types.T_time.ToType(),
 					types.T_datetime.ToType(),
 					types.T_json.ToType(),
+					types.T_f32vec.ToType(),
 				},
 				3)
 		}
@@ -631,6 +633,7 @@ func Test_typeconvert(t *testing.T) {
 			types.T_time,
 			types.T_datetime,
 			types.T_json,
+			types.T_f32vec,
 		}
 
 		type kase struct {

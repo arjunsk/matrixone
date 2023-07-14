@@ -81,6 +81,14 @@ const (
 
 	// system family
 	T_tuple T = 201
+
+	// vector
+	T_f32vec T = 110
+	//T_i16vec T = 111
+	//T_i32vec T = 112
+	//T_i64vec T = 113
+	//T_f32vec T = 114
+	//T_f64vec T = 115
 )
 
 const (
@@ -102,6 +110,7 @@ type Type struct {
 	Size int32
 	// Width means max Display width for float and double, char and varchar
 	// todo: need to add new attribute DisplayWidth ?
+	//TODO: Use Width as Dimension
 	Width int32
 	// Scale means number of fractional digits for decimal, timestamp, float, etc.
 	Scale int32
@@ -367,6 +376,8 @@ var Types map[string]T = map[string]T{
 	"transaction timestamp": T_TS,
 	"rowid":                 T_Rowid,
 	"blockid":               T_Blockid,
+
+	"float_vector": T_f32vec,
 }
 
 func New(oid T, width, scale int32) Type {
@@ -572,6 +583,9 @@ func (t T) ToType() Type {
 	case T_varbinary:
 		typ.Size = VarlenaSize
 		typ.Width = MaxVarBinaryLen
+	case T_f32vec:
+		typ.Size = VarlenaSize
+		typ.Width = MaxVectorLen
 	case T_any:
 		// XXX I don't know about this one ...
 		typ.Size = 0
@@ -647,6 +661,8 @@ func (t T) String() string {
 		return "BLOCKID"
 	case T_interval:
 		return "INTERVAL"
+	case T_f32vec:
+		return "FLOAT VECTOR"
 	}
 	return fmt.Sprintf("unexpected type: %d", t)
 }
@@ -714,6 +730,8 @@ func (t T) OidString() string {
 		return "T_Blockid"
 	case T_interval:
 		return "T_interval"
+	case T_f32vec:
+		return "T_f32vec"
 	}
 	return "unknown_type"
 }
@@ -761,6 +779,8 @@ func (t T) TypeLen() int {
 		return BlockidSize
 	case T_tuple, T_interval:
 		return 0
+	case T_f32vec:
+		return VarlenaSize
 	}
 	panic(fmt.Sprintf("unknown type %d", t))
 }
@@ -794,6 +814,8 @@ func (t T) FixedLength() int {
 		return BlockidSize
 	case T_char, T_varchar, T_blob, T_json, T_text, T_binary, T_varbinary:
 		return -24
+	case T_f32vec:
+		return -25
 	}
 	panic(moerr.NewInternalErrorNoCtx(fmt.Sprintf("unknown type %d", t)))
 }
