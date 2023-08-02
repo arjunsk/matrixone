@@ -492,7 +492,7 @@ func decimalArith[T templateDec](parameters []*vector.Vector, result vector.Func
 	return nil
 }
 
-func arrayArith[T types.BuiltinNumber](ivecs []*vector.Vector, result vector.FunctionResultWrapper, _ *process.Process, length int,
+func vectorArith[T types.BuiltinNumber](ivecs []*vector.Vector, result vector.FunctionResultWrapper, _ *process.Process, length int,
 	arithFn func(v1, v2 []T, scale1, scale2 int32) ([]T, error)) error {
 
 	p1 := vector.GenerateFunctionStrParameter(ivecs[0])
@@ -504,14 +504,14 @@ func arrayArith[T types.BuiltinNumber](ivecs []*vector.Vector, result vector.Fun
 		_v1, _ := p1.GetStrValue(0)
 		_v2, _ := p2.GetStrValue(0)
 
-		v1 := types.BytesToArray[T](_v1)
-		v2 := types.BytesToArray[T](_v2)
+		v1 := types.BytesToVector[T](_v1)
+		v2 := types.BytesToVector[T](_v2)
 		res, err := arithFn(v1, v2, 0, 0)
 
 		if err != nil {
 			return err
 		}
-		rs.AppendBytes(types.ArrayToBytes[T](res), false)
+		rs.AppendBytes(types.VectorToBytes[T](res), false)
 	}
 
 	return nil

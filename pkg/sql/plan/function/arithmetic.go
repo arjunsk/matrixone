@@ -30,7 +30,7 @@ func plusOperatorSupports(typ1, typ2 types.Type) bool {
 	case types.T_uint8, types.T_uint16, types.T_uint32, types.T_uint64:
 	case types.T_int8, types.T_int16, types.T_int32, types.T_int64:
 	case types.T_float32, types.T_float64:
-	case types.T_decimal64, types.T_decimal128, types.T_array_float32, types.T_array_float64:
+	case types.T_decimal64, types.T_decimal128, types.T_vector_float32, types.T_vector_float64:
 	default:
 		return false
 	}
@@ -161,8 +161,8 @@ func plusFn(parameters []*vector.Vector, result vector.FunctionResultWrapper, pr
 			r, _, err := v1.Add(v2, scale1, scale2)
 			return r, err
 		})
-	case types.T_array_float32:
-		return arrayArith[float32](parameters, result, proc, length, func(v1, v2 []float32, scale1, scale2 int32) ([]float32, error) {
+	case types.T_vector_float32:
+		return vectorArith[float32](parameters, result, proc, length, func(v1, v2 []float32, scale1, scale2 int32) ([]float32, error) {
 			if len(v1) != len(v2) {
 				return nil, moerr.NewInternalErrorNoCtx("Dimensions should be same")
 			}
@@ -174,8 +174,8 @@ func plusFn(parameters []*vector.Vector, result vector.FunctionResultWrapper, pr
 
 			return r, nil
 		})
-	case types.T_array_float64:
-		return arrayArith[float64](parameters, result, proc, length, func(v1, v2 []float64, scale1, scale2 int32) ([]float64, error) {
+	case types.T_vector_float64:
+		return vectorArith[float64](parameters, result, proc, length, func(v1, v2 []float64, scale1, scale2 int32) ([]float64, error) {
 			if len(v1) != len(v2) {
 				return nil, moerr.NewInternalErrorNoCtx("Dimensions should be same")
 			}

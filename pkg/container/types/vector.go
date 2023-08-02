@@ -25,19 +25,19 @@ import (
 )
 
 const (
-	//MaxArrayDimension Comment: https://github.com/arjunsk/matrixone/pull/35#discussion_r1275713689
-	MaxArrayDimension = 65536
+	//MaxVectorDimension Comment: https://github.com/arjunsk/matrixone/pull/35#discussion_r1275713689
+	MaxVectorDimension = 65536
 )
 
-func BytesToArray[T BuiltinNumber](input []byte) (res []T) {
+func BytesToVector[T BuiltinNumber](input []byte) (res []T) {
 	return DecodeSlice[T](input)
 }
 
-func ArrayToBytes[T BuiltinNumber](input []T) []byte {
+func VectorToBytes[T BuiltinNumber](input []T) []byte {
 	return EncodeSlice[T](input)
 }
 
-func ArrayToString[T BuiltinNumber](input []T) string {
+func VectorToString[T BuiltinNumber](input []T) string {
 	var buffer bytes.Buffer
 	for i, value := range input {
 		if i > 0 {
@@ -48,15 +48,15 @@ func ArrayToString[T BuiltinNumber](input []T) string {
 	return "[" + buffer.String() + "]"
 }
 
-func ArraysToString[T BuiltinNumber](input [][]T) string {
+func VectorsToString[T BuiltinNumber](input [][]T) string {
 	var strValues []string
 	for _, row := range input {
-		strValues = append(strValues, ArrayToString[T](row))
+		strValues = append(strValues, VectorToString[T](row))
 	}
 	return strings.Join(strValues, " ")
 }
 
-func StringToArray[T BuiltinNumber](input string) ([]T, error) {
+func StringToVector[T BuiltinNumber](input string) ([]T, error) {
 	input = strings.ReplaceAll(input, "[", "")
 	input = strings.ReplaceAll(input, "]", "")
 	input = strings.ReplaceAll(input, " ", "")
@@ -90,7 +90,7 @@ func StringToArray[T BuiltinNumber](input string) ([]T, error) {
 	return result, nil
 }
 
-func CompareArray[T BuiltinNumber](left, right []T) int64 {
+func CompareVector[T BuiltinNumber](left, right []T) int64 {
 
 	if len(left) != len(right) {
 		//TODO: check this with Min.

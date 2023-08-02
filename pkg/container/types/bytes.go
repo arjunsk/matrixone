@@ -103,13 +103,13 @@ func (v *Varlena) GetByteSlice(area []byte) []byte {
 	return area[voff : voff+vlen]
 }
 
-func GetArray[T BuiltinNumber](v *Varlena, area []byte) []T {
+func GetVector[T BuiltinNumber](v *Varlena, area []byte) []T {
 	svlen := (*v)[0]
 	if svlen <= VarlenaInlineSize {
-		return BytesToArray[T](v.ByteSlice())
+		return BytesToVector[T](v.ByteSlice())
 	}
 	voff, vlen := v.OffsetLen()
-	return BytesToArray[T](area[voff : voff+vlen])
+	return BytesToVector[T](area[voff : voff+vlen])
 }
 
 // See the lifespan comment above.

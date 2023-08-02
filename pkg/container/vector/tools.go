@@ -75,17 +75,17 @@ func MustStrCol(v *Vector) []string {
 	}
 }
 
-func MustArrayCol[T types.BuiltinNumber](v *Vector) [][]T {
+func MustVectorCol[T types.BuiltinNumber](v *Vector) [][]T {
 	if v.GetType().Oid == types.T_any || len(v.data) == 0 {
 		return nil
 	}
 	varcol := MustFixedCol[types.Varlena](v)
 	if v.class == CONSTANT {
-		return [][]T{types.GetArray[T](&varcol[0], v.area)}
+		return [][]T{types.GetVector[T](&varcol[0], v.area)}
 	} else {
 		ret := make([][]T, v.length)
 		for i := range varcol {
-			ret[i] = types.GetArray[T](&varcol[i], v.area)
+			ret[i] = types.GetVector[T](&varcol[i], v.area)
 		}
 		return ret
 	}
@@ -122,19 +122,19 @@ func ExpandStrCol(v *Vector) []string {
 	return MustStrCol(v)
 }
 
-func ExpandArrayCol[T types.BuiltinNumber](v *Vector) [][]T {
+func ExpandVectorCol[T types.BuiltinNumber](v *Vector) [][]T {
 	if v.IsConst() {
 		vs := make([][]T, v.Length())
 		if len(v.data) > 0 {
 			cols := v.col.([]types.Varlena)
-			ss := types.GetArray[T](&cols[0], v.area)
+			ss := types.GetVector[T](&cols[0], v.area)
 			for i := range vs {
 				vs[i] = ss
 			}
 		}
 		return vs
 	}
-	return MustArrayCol[T](v)
+	return MustVectorCol[T](v)
 }
 
 func ExpandBytesCol(v *Vector) [][]byte {
@@ -343,17 +343,17 @@ func (v *Vector) CompareAndCheckIntersect(vec *Vector) (bool, error) {
 		}, func(t1, t2 string) bool {
 			return strings.Compare(t1, t2) <= 0
 		})
-	case types.T_array_float32:
-		return checkArrayIntersect[float32](v, vec, func(t1, t2 []float32) bool {
-			return types.CompareArray[float32](t1, t2) >= 0
+	case types.T_vector_float32:
+		return checkVectorIntersect[float32](v, vec, func(t1, t2 []float32) bool {
+			return types.CompareVector[float32](t1, t2) >= 0
 		}, func(t1, t2 []float32) bool {
-			return types.CompareArray[float32](t1, t2) <= 0
+			return types.CompareVector[float32](t1, t2) <= 0
 		})
-	case types.T_array_float64:
-		return checkArrayIntersect[float64](v, vec, func(t1, t2 []float64) bool {
-			return types.CompareArray[float64](t1, t2) >= 0
+	case types.T_vector_float64:
+		return checkVectorIntersect[float64](v, vec, func(t1, t2 []float64) bool {
+			return types.CompareVector[float64](t1, t2) >= 0
 		}, func(t1, t2 []float64) bool {
-			return types.CompareArray[float64](t1, t2) <= 0
+			return types.CompareVector[float64](t1, t2) <= 0
 		})
 	}
 	//TODO: would T_array be used in Zonemap?
@@ -376,9 +376,9 @@ func checkStrIntersect(v1, v2 *Vector, gtFun compFn[string], ltFun compFn[string
 	return checkIntersect(cols1, cols2, gtFun, ltFun)
 }
 
-func checkArrayIntersect[T types.BuiltinNumber](v1, v2 *Vector, gtFun compFn[[]T], ltFun compFn[[]T]) (bool, error) {
-	cols1 := MustArrayCol[T](v1)
-	cols2 := MustArrayCol[T](v2)
+func checkVectorIntersect[T types.BuiltinNumber](v1, v2 *Vector, gtFun compFn[[]T], ltFun compFn[[]T]) (bool, error) {
+	cols1 := MustVectorCol[T](v1)
+	cols2 := MustVectorCol[T](v2)
 	return checkIntersect(cols1, cols2, gtFun, ltFun)
 }
 
@@ -537,9 +537,9 @@ func (v *Vector) CompareAndCheckAnyResultIsTrue(ctx context.Context, vec *Vector
 				return strings.Compare(t1, t2) <= 0
 			}), nil
 		}
-	case types.T_array_float32:
+	case types.T_vector_float32:
 		return compareArray[float32](ctx, v, vec, funName)
-	case types.T_array_float64:
+	case types.T_vector_float64:
 		return compareArray[float64](ctx, v, vec, funName)
 	default:
 		return false, moerr.NewInternalErrorNoCtx("unsupport compare type")
@@ -575,20 +575,20 @@ func compareNumber[T types.OrderedT](ctx context.Context, v1, v2 *Vector, fnName
 func compareArray[T types.BuiltinNumber](ctx context.Context, v1, v2 *Vector, fnName string) (bool, error) {
 	switch fnName {
 	case ">":
-		return runArrayCompareCheckAnyResultIsTrue(v1, v2, func(t1, t2 []T) bool {
-			return types.CompareArray[T](t1, t2) == 1
+		return runVectorCompareCheckAnyResultIsTrue(v1, v2, func(t1, t2 []T) bool {
+			return types.CompareVector[T](t1, t2) == 1
 		}), nil
 	case "<":
-		return runArrayCompareCheckAnyResultIsTrue(v1, v2, func(t1, t2 []T) bool {
-			return types.CompareArray[T](t1, t2) == -1
+		return runVectorCompareCheckAnyResultIsTrue(v1, v2, func(t1, t2 []T) bool {
+			return types.CompareVector[T](t1, t2) == -1
 		}), nil
 	case ">=":
-		return runArrayCompareCheckAnyResultIsTrue(v1, v2, func(t1, t2 []T) bool {
-			return types.CompareArray[T](t1, t2) >= 0
+		return runVectorCompareCheckAnyResultIsTrue(v1, v2, func(t1, t2 []T) bool {
+			return types.CompareVector[T](t1, t2) >= 0
 		}), nil
 	case "<=":
-		return runArrayCompareCheckAnyResultIsTrue(v1, v2, func(t1, t2 []T) bool {
-			return types.CompareArray[T](t1, t2) <= 0
+		return runVectorCompareCheckAnyResultIsTrue(v1, v2, func(t1, t2 []T) bool {
+			return types.CompareVector[T](t1, t2) <= 0
 		}), nil
 	default:
 		return false, moerr.NewInternalErrorNoCtx("unsupport compare function")
@@ -624,7 +624,7 @@ func runStrCompareCheckAnyResultIsTrue(vec1, vec2 *Vector, fn compFn[string]) bo
 	return compareCheckAnyResultIsTrue(cols1, cols2, fn)
 }
 
-func runArrayCompareCheckAnyResultIsTrue[T types.BuiltinNumber](vec1, vec2 *Vector, fn compFn[[]T]) bool {
+func runVectorCompareCheckAnyResultIsTrue[T types.BuiltinNumber](vec1, vec2 *Vector, fn compFn[[]T]) bool {
 	// column_a operator column_b  -> return true
 	// that means we don't known the return, just readBlock
 	if vec1.IsConstNull() || vec2.IsConstNull() {
@@ -634,8 +634,8 @@ func runArrayCompareCheckAnyResultIsTrue[T types.BuiltinNumber](vec1, vec2 *Vect
 		return true
 	}
 
-	cols1 := MustArrayCol[T](vec1)
-	cols2 := MustArrayCol[T](vec2)
+	cols1 := MustVectorCol[T](vec1)
+	cols2 := MustVectorCol[T](vec2)
 	return compareCheckAnyResultIsTrue(cols1, cols2, fn)
 }
 

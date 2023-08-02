@@ -120,8 +120,8 @@ func getTypeFromAst(ctx context.Context, typ tree.ResolvableTypeReference) (*pla
 				return nil, moerr.NewOutOfRange(ctx, fstr, " typeLen is over the MaxCharLen: %v", types.MaxCharLen)
 			} else if (fstr == "varchar" || fstr == "varbinary") && width > types.MaxVarcharLen {
 				return nil, moerr.NewOutOfRange(ctx, fstr, " typeLen is over the MaxVarcharLen: %v", types.MaxVarcharLen)
-			} else if (fstr == "array_float32" || fstr == "array_float64") && width > types.MaxArrayDimension {
-				return nil, moerr.NewOutOfRange(ctx, fstr, " typeLen is over the MaxArrayDimension: %v", types.MaxVarcharLen)
+			} else if (fstr == "array_float32" || fstr == "array_float64") && width > types.MaxVectorDimension {
+				return nil, moerr.NewOutOfRange(ctx, fstr, " typeLen is over the MaxVectorDimension: %v", types.MaxVarcharLen)
 			}
 			switch fstr {
 			case "char":
@@ -131,9 +131,9 @@ func getTypeFromAst(ctx context.Context, typ tree.ResolvableTypeReference) (*pla
 			case "varchar":
 				return &plan.Type{Id: int32(types.T_varchar), Width: width}, nil
 			case "array_float32":
-				return &plan.Type{Id: int32(types.T_array_float32), Width: width}, nil
+				return &plan.Type{Id: int32(types.T_vector_float32), Width: width}, nil
 			case "array_float64":
-				return &plan.Type{Id: int32(types.T_array_float64), Width: width}, nil
+				return &plan.Type{Id: int32(types.T_vector_float64), Width: width}, nil
 			}
 			// varbinary
 			return &plan.Type{Id: int32(types.T_varbinary), Width: width}, nil

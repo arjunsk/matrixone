@@ -37,8 +37,8 @@ func TestBytesToArray(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if gotRes := BytesToArray[float64](tt.args.input); !reflect.DeepEqual(gotRes, tt.wantRes) {
-				t.Errorf("BytesToArray() = %v, want %v", gotRes, tt.wantRes)
+			if gotRes := BytesToVector[float64](tt.args.input); !reflect.DeepEqual(gotRes, tt.wantRes) {
+				t.Errorf("BytesToVector() = %v, want %v", gotRes, tt.wantRes)
 			}
 		})
 	}
@@ -62,8 +62,8 @@ func TestArrayToBytes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ArrayToBytes[float64](tt.args.input); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ArrayToBytes() = %v, want %v", got, tt.want)
+			if got := VectorToBytes[float64](tt.args.input); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("VectorToBytes() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -87,8 +87,8 @@ func TestArrayToString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ArrayToString[float64](tt.args.input); got != tt.want {
-				t.Errorf("ArrayToString() = %v, want %v", got, tt.want)
+			if got := VectorToString[float64](tt.args.input); got != tt.want {
+				t.Errorf("VectorToString() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -112,8 +112,8 @@ func TestArraysToString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ArraysToString[float64](tt.args.input); got != tt.want {
-				t.Errorf("ArraysToString() = %v, want %v", got, tt.want)
+			if got := VectorsToString[float64](tt.args.input); got != tt.want {
+				t.Errorf("VectorsToString() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -138,8 +138,8 @@ func TestStringToArray(t *testing.T) {
 	}
 	for _, tt := range float32tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got, _ := StringToArray[float32](tt.args.input); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("StringToArray() = %v, want %v", got, tt.want)
+			if got, _ := StringToVector[float32](tt.args.input); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("StringToVector() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -153,8 +153,8 @@ func TestStringToArray(t *testing.T) {
 	}
 	for _, tt := range float64tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got, _ := StringToArray[float64](tt.args.input); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("StringToArray() = %v, want %v", got, tt.want)
+			if got, _ := StringToVector[float64](tt.args.input); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("StringToVector() = %v, want %v", got, tt.want)
 			}
 		})
 	}
