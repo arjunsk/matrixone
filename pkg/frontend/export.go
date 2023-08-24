@@ -468,10 +468,13 @@ func constructByte(obj interface{}, bat *batch.Batch, index int32, ByteChan chan
 				} else {
 					writeByte = appendBytes(writeByte, []byte(strconv.FormatFloat(float64(val), 'f', int(vec.GetType().Scale), 64)), symbol[j], closeby, flag[j])
 				}
-			case types.T_char, types.T_varchar, types.T_blob, types.T_text, types.T_binary, types.T_varbinary:
+			case types.T_char, types.T_varchar, types.T_blob, types.T_text, types.T_binary, types.T_varbinary,
+				types.T_array_float32, types.T_array_float64:
+				// NOTE: Added T_array_float32 to byte section. Converting it to textual form ie "[1,2,3]" was throwing,
+				// decode slice that is not a multiple of element size.
+				// NOTE: CSV output will have []float32 in byte array format.
 				value := addEscapeToString(vec.GetBytesAt(i))
 				writeByte = appendBytes(writeByte, value, symbol[j], closeby, true)
-				//TODO: How should we export T_array in CSV? Is it as "[1,2,3]"?
 			case types.T_date:
 				val := vector.GetFixedAt[types.Date](vec, i)
 				writeByte = appendBytes(writeByte, []byte(val.String()), symbol[j], closeby, flag[j])
