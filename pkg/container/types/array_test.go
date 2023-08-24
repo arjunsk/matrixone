@@ -16,6 +16,7 @@ package types
 
 import (
 	"github.com/matrixorigin/matrixone/pkg/common/moerr"
+	"github.com/matrixorigin/matrixone/pkg/common/util"
 	"reflect"
 	"testing"
 )
@@ -242,6 +243,38 @@ func TestStringToArray(t *testing.T) {
 				}
 			}
 
+		})
+	}
+}
+
+func TestHexToArray(t *testing.T) {
+	type args struct {
+		input []byte
+	}
+	type testCase[T RealNumbers] struct {
+		name    string
+		args    args
+		want    []T
+		wantErr bool
+	}
+	tests := []testCase[float32]{
+		{
+			name:    "T1",
+			args:    args{input: util.UnsafeStringToBytes("7e98b23e9e10383b2f41133f")},
+			want:    []float32{0.34881967306137085, 0.0028086076490581036, 0.5752133727073669},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := HexToArray[float32](tt.args.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("HexToArray() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("HexToArray() got = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

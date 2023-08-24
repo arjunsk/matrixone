@@ -287,6 +287,7 @@ var supportedTypeCast = map[types.T][]types.T{
 		types.T_time, types.T_timestamp,
 		types.T_char, types.T_varchar, types.T_blob, types.T_text,
 		types.T_binary, types.T_varbinary,
+		types.T_array_float32, types.T_array_float64,
 	},
 
 	types.T_text: {
@@ -328,9 +329,11 @@ var supportedTypeCast = map[types.T][]types.T{
 
 	types.T_array_float32: {
 		types.T_array_float32, types.T_array_float64,
+		types.T_blob,
 	},
 	types.T_array_float64: {
 		types.T_array_float32, types.T_array_float64,
+		types.T_blob,
 	},
 }
 
@@ -1414,6 +1417,22 @@ func strTypeToOthers(proc *process.Process,
 	source vector.FunctionParameterWrapper[types.Varlena],
 	toType types.Type, result vector.FunctionResultWrapper, length int) error {
 	ctx := proc.Ctx
+
+	fromType := source.GetType()
+	if fromType.Oid == types.T_blob {
+		// For handling BLOB to ARRAY casting. This is used for BINARY IO.
+		switch toType.Oid {
+		case types.T_array_float32:
+			rs := vector.MustFunctionResult[types.Varlena](result)
+			return blobToArray[float32](proc.Ctx, source, rs, length, toType)
+		case types.T_array_float64:
+			rs := vector.MustFunctionResult[types.Varlena](result)
+			return blobToArray[float64](proc.Ctx, source, rs, length, toType)
+			// don't add default and panic here.
+			// If T_blob to ARRAY is not found, then continue with rest of the code block.
+		}
+	}
+
 	switch toType.Oid {
 	case types.T_int8:
 		rs := vector.MustFunctionResult[int8](result)
@@ -3898,6 +3917,8 @@ func strToStr(
 			}
 		}
 	} else {
+		// VARCHAR to BLOB path. ie CAST("binary_data_from_numpy" as BLOB).
+		// This has zero cost.
 		for i = 0; i < l; i++ {
 			v, null := from.GetStrValue(i)
 			if null {
@@ -3941,6 +3962,50 @@ func strToArray[T types.RealNumbers](
 	return nil
 }
 
+func blobToArray[T types.RealNumbers](
+	_ context.Context,
+	from vector.FunctionParameterWrapper[types.Varlena],
+	to *vector.FunctionResult[types.Varlena], length int, _ types.Type) error {
+
+	toType := to.GetType()
+
+	var i uint64
+	var l = uint64(length)
+	for i = 0; i < l; i++ {
+
+		v, null := from.GetStrValue(i)
+		if null || len(v) == 0 {
+			if err := to.AppendBytes(nil, true); err != nil {
+				return err
+			}
+		} else {
+			arr, err := types.HexToArray[T](v)
+			if err != nil {
+				return err
+			}
+
+			//TODO: Add examples in CAST to test these cases.
+
+			if len(arr) > int(toType.Width) {
+				return moerr.NewInternalErrorNoCtx("dimension more than expected dimension %v > %v", len(arr), toType.Width)
+			}
+
+			// right-padding (zero).
+			if len(arr) < int(toType.Width) {
+				add0 := int(toType.Width) - len(arr)
+				for ; add0 != 0; add0-- {
+					arr = append(arr, 0)
+				}
+			}
+
+			if err = to.AppendBytes(types.ArrayToBytes[T](arr), false); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func ArrayToArray[I types.RealNumbers, O types.RealNumbers](
 	_ context.Context,
 	from vector.FunctionParameterWrapper[types.Varlena],
@@ -3958,13 +4023,45 @@ func ArrayToArray[I types.RealNumbers, O types.RealNumbers](
 		}
 
 		if from.GetType().Oid == to.GetType().Oid {
-			// If Array types are same, then we don't need casting.
-			if err := to.AppendBytes(v, false); err != nil {
-				return err
+
+			if from.GetType().Width == to.GetType().Width {
+				// If Array types are same, and width are same,
+				// then we don't need casting nor zero padding.
+				// Don't merge it with the below block, as below block needs BytesToArray.
+				if err := to.AppendBytes(v, false); err != nil {
+					return err
+				}
+			} else {
+				// Array types are same, hence no casting.
+				// But width is not same, so we need zero padding
+				_v := types.BytesToArray[I](v)
+
+				// right zero padding
+				if len(_v) < int(to.GetType().Width) {
+					add0 := int(to.GetType().Width) - len(_v)
+					for ; add0 != 0; add0-- {
+						_v = append(_v, 0)
+					}
+				}
+
+				bytes := types.ArrayToBytes[I](_v)
+				if err := to.AppendBytes(bytes, false); err != nil {
+					return err
+				}
 			}
+
 		} else {
 			_v := types.BytesToArray[I](v)
 			cast := moarray.Cast[I, O](_v)
+
+			// right zero padding
+			if len(_v) < int(to.GetType().Width) {
+				add0 := int(to.GetType().Width) - len(_v)
+				for ; add0 != 0; add0-- {
+					_v = append(_v, 0)
+				}
+			}
+
 			bytes := types.ArrayToBytes[O](cast)
 			if err := to.AppendBytes(bytes, false); err != nil {
 				return err

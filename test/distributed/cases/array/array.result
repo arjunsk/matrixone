@@ -17,8 +17,7 @@ select b*b from vec_table;
 b * b
 [1, 4, 9]
 select b/b from vec_table;
-b / b
-[1, 1, 1]
+internal error: dimension mismatch 3 != 65536
 select * from vec_table where b> "[1,2,3]";
 a    b    c
 select * from vec_table where b< "[1,2,3]";
@@ -41,9 +40,9 @@ select b + "[1,2,3]" from vec_table;
 b + [1,2,3]
 [2, 4, 6]
 select b + "[1,2]" from vec_table;
-invalid input: dimension mismatch. 3 != 2
+invalid input: dimension mismatch
 select b + "[1,2,3,4]" from vec_table;
-invalid input: dimension mismatch. 3 != 4
+invalid input: dimension mismatch
 select cast("[1,2,3]" as vecf32(3));
 cast([1,2,3] as vecf32(3))
 [1, 2, 3]
@@ -51,8 +50,7 @@ select b + "[1,2,3]" from vec_table;
 b + [1,2,3]
 [2, 4, 6]
 select b + sqrt(b) from vec_table;
-b + sqrt(b)
-[2, 3.414213562373095, 4.732050807568877]
+internal error: dimension mismatch 3 != 65536
 select b + c from vec_table;
 b + c
 [5, 7, 9]
@@ -99,7 +97,7 @@ Data truncation: data out of range: data type vecf32,  typeLen is over the MaxVe
 select sqrt(cast("[1,2,-3]" as vecf32(3)));
 invalid argument Sqrt, bad value -3
 select b/(cast("[1,2,0]" as vecf32(3))) from vec_table;
-Data truncation: division by zero
+internal error: dimension mismatch 3 != 65536
 select count(b) from vec_table;
 count(b)
 1

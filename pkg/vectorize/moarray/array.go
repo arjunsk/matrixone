@@ -71,6 +71,7 @@ func Divide[T types.RealNumbers](v1, v2 []T) ([]T, error) {
 	}
 	n := len(v1)
 	r := make([]T, n)
+
 	for i := 0; i < n; i++ {
 		if v2[i] == 0 {
 			return nil, moerr.NewDivByZeroNoCtx()
