@@ -333,7 +333,7 @@ import (
 %token <str> PROPERTIES
 
 // Index
-%token <str> PARSER VISIBLE INVISIBLE BTREE HASH RTREE BSI
+%token <str> PARSER VISIBLE INVISIBLE BTREE HASH RTREE BSI IVFFLAT
 %token <str> ZONEMAP LEADING BOTH TRAILING UNKNOWN
 
 // Alter
@@ -6034,6 +6034,10 @@ using_opt:
     {
         $$ = tree.INDEX_TYPE_BSI
     }
+|   USING IVFFLAT
+    {
+        $$ = tree.INDEX_TYPE_IVFFLAT
+    }
 
 create_database_stmt:
     CREATE database_or_schema not_exists_opt ident subcription_opt create_option_list_opt
@@ -7225,6 +7229,7 @@ index_type:
 |   RTREE
 |   ZONEMAP
 |   BSI
+|   IVFFLAT
 
 insert_method_options:
     NO
