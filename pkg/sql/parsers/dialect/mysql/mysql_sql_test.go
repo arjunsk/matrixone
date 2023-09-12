@@ -1013,6 +1013,9 @@ var (
 		}, {
 			input: "select t.a from sa.t",
 		}, {
+			input:  "create table t1(a vecf32(3), b vecf64(3), c int)",
+			output: "create table t1 (a vecf32(3), b vecf64(3), c int)",
+		}, {
 			input:  "create table k1 (id int not null primary key,name varchar(20)) partition by key() partitions 2",
 			output: "create table k1 (id int not null primary key, name varchar(20)) partition by key algorithm = 2 partitions 2",
 		}, {
