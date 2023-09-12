@@ -55,8 +55,8 @@ func (f *faissClustering) ComputeClusters(clusterCnt int64, data [][]float32) (c
 			vectorFlat[(r*dims)+c] = data[r][c]
 		}
 	}
-	//TODO: do memory de-allocation if any
 
+	//TODO: do memory de-allocation if any
 	centroidsFlat := make([]float32, dims*clusterCnt)
 	var qError float32
 	c := C.faiss_kmeans_clustering(

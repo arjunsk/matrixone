@@ -38,8 +38,7 @@ func loadData(nb int, d int, xb [][]float32) {
 	for r := 0; r < nb; r++ {
 		xb[r] = make([]float32, d)
 		for c := 0; c < d; c++ {
-			xb[r][c] = rand.Float32()
+			xb[r][c] = rand.Float32() * 1000
 		}
-		xb[r][0] += float32(r) / 1000
 	}
 }
