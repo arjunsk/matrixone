@@ -828,6 +828,7 @@ func (s *Scope) CreateIndex(c *Compile) error {
 	case tree.INDEX_TYPE_IVFFLAT.ToString():
 		def := qry.GetIndex().GetTableDef()
 
+		// auxiliary table 1 - centroids
 		defs, err := r.GetPrimaryKeys(c.ctx)
 		if err != nil {
 			return err
@@ -835,7 +836,19 @@ func (s *Scope) CreateIndex(c *Compile) error {
 		if len(defs) != 1 {
 			panic("invalid primary keys")
 		}
-		createSQL, err := genCreateIndexTableSqlForIvf(def, indexDef, qry.Database, defs[0].Type)
+		indexTblName1 := indexDef.IndexTableName + "centroids"
+		createSQL, err := genCreateIndexTableSqlForIvfCentroids(def, indexTblName1, qry.Database, defs[0].Type)
+		if err != nil {
+			return err
+		}
+		err = c.runSql(createSQL)
+		if err != nil {
+			return err
+		}
+
+		// auxiliary table 2 - secondary index
+		indexTblName2 := indexDef.IndexTableName + "data"
+		createSQL, err = genCreateIndexTableSqlForIvfData(def, indexTblName2, qry.Database, defs[0].Type)
 		if err != nil {
 			return err
 		}

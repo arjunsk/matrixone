@@ -109,8 +109,8 @@ func genCreateIndexTableSql(indexTableDef *plan.TableDef, indexDef *plan.IndexDe
 	return fmt.Sprintf(createIndexTableForamt, DBName, indexDef.IndexTableName, sql)
 }
 
-// genCreateIndexTableSqlForIvf: Generate ddl statements for creating ivf index table
-func genCreateIndexTableSqlForIvf(indexTableDef *plan.TableDef, indexDef *plan.IndexDef, DBName string, pkType types.Type) (string, error) {
+// genCreateIndexTableSqlForIvfCentroids: Generate ddl statements for creating ivf index table
+func genCreateIndexTableSqlForIvfCentroids(indexTableDef *plan.TableDef, indexTblName string, DBName string, pkType types.Type) (string, error) {
 	var sql string
 	planCols := indexTableDef.GetCols()
 	if len(planCols) != 1 {
@@ -154,7 +154,41 @@ func genCreateIndexTableSqlForIvf(indexTableDef *plan.TableDef, indexDef *plan.I
 		sql += typeId.String()
 	}
 
-	return fmt.Sprintf(createIndexTableForamt, DBName, indexDef.IndexTableName, sql), nil
+	return fmt.Sprintf(createIndexTableForamt, DBName, indexTblName, sql), nil
+}
+
+// genCreateIndexTableSqlForIvfData: Generate ddl statements for creating ivf index table
+func genCreateIndexTableSqlForIvfData(indexTableDef *plan.TableDef, indexTblName string, DBName string, pkType types.Type) (string, error) {
+	var sql string
+	planCols := indexTableDef.GetCols()
+	if len(planCols) != 1 {
+		return "", moerr.NewInternalErrorNoCtx("vector index column count is not 1")
+	}
+
+	// col1 - static column for enumerating centroids
+	sql += "mo_index_idx_col INT, "
+
+	// col2 - holds primary key of the parent table.
+	sql += "mo_index_pri_col "
+	typeId := pkType.Oid
+	switch typeId {
+	case types.T_char:
+		sql += fmt.Sprintf("CHAR(%d)", pkType.Width)
+	case types.T_varchar:
+		sql += fmt.Sprintf("VARCHAR(%d)", pkType.Width)
+	case types.T_binary:
+		sql += fmt.Sprintf("BINARY(%d)", pkType.Width)
+	case types.T_varbinary:
+		sql += fmt.Sprintf("VARBINARY(%d)", pkType.Width)
+	case types.T_decimal64:
+		sql += fmt.Sprintf("DECIMAL(%d,%d)", pkType.Width, pkType.Scale)
+	case types.T_decimal128:
+		sql += fmt.Sprintf("DECIAML(%d,%d)", pkType.Width, pkType.Scale)
+	default:
+		sql += typeId.String()
+	}
+
+	return fmt.Sprintf(createIndexTableForamt, DBName, indexTblName, sql), nil
 }
 
 // genInsertIndexTableSql: Generate an insert statement for inserting data into the index table
