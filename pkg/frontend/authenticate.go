@@ -860,6 +860,7 @@ var (
 				database_id bigint unsigned not null,
 				name 		varchar(64) not null,
 				type        varchar(11) not null,
+				algorithm   varchar(20) not null,
 				is_visible  tinyint not null,
 				hidden      tinyint not null,
 				comment 	varchar(2048) not null,
@@ -7656,12 +7657,24 @@ func InitGeneralTenant(ctx context.Context, ses *Session, ca *tree.CreateAccount
 		return true, err
 	}
 
+	executeConditionalUpgrades := func() error {
+		addAlgoColumnInMoIndex := fmt.Sprintf(`alter table %s.%s 
+				add column(algorithm varchar(20)) after type 
+    			IF NOT EXISTS algorithm;`, catalog.MO_CATALOG, catalog.MO_INDEXES)
+
+		err = bh.Exec(newTenantCtx, addAlgoColumnInMoIndex)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
 	needCreate, err = createNewAccount()
 	if err != nil {
 		return err
 	}
 	if !needCreate {
-		return err
+		return executeConditionalUpgrades()
 	}
 
 	{

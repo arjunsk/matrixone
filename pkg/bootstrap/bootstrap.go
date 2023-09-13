@@ -42,6 +42,7 @@ var (
 			database_id bigint unsigned not null,
 			name 		varchar(64) not null,
 			type        varchar(11) not null,
+    		algorithm	varchar(11)not null,
 			is_visible  tinyint not null,
 			hidden      tinyint not null,
 			comment 	varchar(2048) not null,
@@ -124,6 +125,13 @@ var (
 		                      end_at) values ("SystemInit", 1, "", "{}", 0, 0, 0, 0, 0, %d, 0)`,
 			catalog.MOTaskDB, time.Now().UnixNano()),
 	}
+
+	conditionalUpgradeSQLs = []string{
+		//TODO: implement "IF NOT EXISTS" for ALTER TABLE
+		fmt.Sprintf(`alter table %s.%s 
+				add column(algorithm varchar(20)) after type 
+    			IF NOT EXISTS algorithm;`, catalog.MO_CATALOG, catalog.MO_INDEXES),
+	}
 )
 
 type bootstrapper struct {
@@ -147,7 +155,7 @@ func (b *bootstrapper) Bootstrap(ctx context.Context) error {
 
 	if ok, err := b.checkAlreadyBootstrapped(ctx); ok {
 		getLogger().Info("mo already boostrapped")
-		return nil
+		return b.execConditionalUpgrades(ctx)
 	} else if err != nil {
 		return err
 	}
@@ -196,6 +204,14 @@ func (b *bootstrapper) checkAlreadyBootstrapped(ctx context.Context) (bool, erro
 		}
 	}
 	return false, nil
+}
+func (b *bootstrapper) execConditionalUpgrades(ctx context.Context) error {
+
+	if err := b.exec.ExecTxn(ctx, execFunc(conditionalUpgradeSQLs), executor.Options{}); err != nil {
+		return err
+	}
+	getLogger().Info("successfully completed upgrade")
+	return nil
 }
 
 func (b *bootstrapper) execBootstrap(ctx context.Context) error {
