@@ -42,7 +42,7 @@ var (
 			database_id bigint unsigned not null,
 			name 		varchar(64) not null,
 			type        varchar(11) not null,
-    		algorithm	varchar(11)not null,
+    		algorithm	varchar(11) not null,
 			is_visible  tinyint not null,
 			hidden      tinyint not null,
 			comment 	varchar(2048) not null,
