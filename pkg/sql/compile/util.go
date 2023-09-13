@@ -99,6 +99,7 @@ func genCreateIndexTableSql(indexTableDef *plan.TableDef, indexDef *plan.IndexDe
 		case types.T_decimal128:
 			sql += fmt.Sprintf("DECIAML(%d,%d)", planCol.Typ.Width, planCol.Typ.Scale)
 		default:
+			//TODO: check for T_array corner cases?
 			sql += typeId.String()
 		}
 		if i == 0 {
@@ -106,6 +107,54 @@ func genCreateIndexTableSql(indexTableDef *plan.TableDef, indexDef *plan.IndexDe
 		}
 	}
 	return fmt.Sprintf(createIndexTableForamt, DBName, indexDef.IndexTableName, sql)
+}
+
+// genCreateIndexTableSqlForIvf: Generate ddl statements for creating ivf index table
+func genCreateIndexTableSqlForIvf(indexTableDef *plan.TableDef, indexDef *plan.IndexDef, DBName string, pkType types.Type) (string, error) {
+	var sql string
+	planCols := indexTableDef.GetCols()
+	if len(planCols) != 1 {
+		return "", moerr.NewInternalErrorNoCtx("vector index column count is not 1")
+	}
+
+	// col1 - static column for enumerating centroids
+	sql += "mo_index_idx_col INT primary key, "
+
+	// col2 - holds centroids
+	idxCol := planCols[0]
+	sql += idxCol.Name + " "
+	typeId := types.T(idxCol.Typ.Id)
+	switch typeId {
+	case types.T_array_float32:
+		sql += fmt.Sprintf("VECF32(%d)", idxCol.Typ.Width)
+	case types.T_array_float64:
+		sql += fmt.Sprintf("VECF64(%d)", idxCol.Typ.Width)
+	default:
+		return "", moerr.NewInternalErrorNoCtx("column type is not vector")
+	}
+	sql += ", "
+
+	// col3 - holds primary key of the parent table.
+	sql += "mo_index_pri_col "
+	typeId = pkType.Oid
+	switch typeId {
+	case types.T_char:
+		sql += fmt.Sprintf("CHAR(%d)", pkType.Width)
+	case types.T_varchar:
+		sql += fmt.Sprintf("VARCHAR(%d)", pkType.Width)
+	case types.T_binary:
+		sql += fmt.Sprintf("BINARY(%d)", pkType.Width)
+	case types.T_varbinary:
+		sql += fmt.Sprintf("VARBINARY(%d)", pkType.Width)
+	case types.T_decimal64:
+		sql += fmt.Sprintf("DECIMAL(%d,%d)", pkType.Width, pkType.Scale)
+	case types.T_decimal128:
+		sql += fmt.Sprintf("DECIAML(%d,%d)", pkType.Width, pkType.Scale)
+	default:
+		sql += typeId.String()
+	}
+
+	return fmt.Sprintf(createIndexTableForamt, DBName, indexDef.IndexTableName, sql), nil
 }
 
 // genInsertIndexTableSql: Generate an insert statement for inserting data into the index table

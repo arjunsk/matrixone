@@ -823,6 +823,28 @@ func (s *Scope) CreateIndex(c *Compile) error {
 			return err
 		}
 	}
+
+	switch indexDef.IndexType {
+	case tree.INDEX_TYPE_IVFFLAT.ToString():
+		def := qry.GetIndex().GetTableDef()
+
+		defs, err := r.GetPrimaryKeys(c.ctx)
+		if err != nil {
+			return err
+		}
+		if len(defs) != 1 {
+			panic("invalid primary keys")
+		}
+		createSQL, err := genCreateIndexTableSqlForIvf(def, indexDef, qry.Database, defs[0].Type)
+		if err != nil {
+			return err
+		}
+		err = c.runSql(createSQL)
+		if err != nil {
+			return err
+		}
+	}
+
 	// build and update constraint def
 	defs, err := planDefsToExeDefs(qry.GetIndex().GetTableDef())
 	if err != nil {
