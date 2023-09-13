@@ -302,6 +302,7 @@ message IndexDef {
 	bool visible          = 8;
 	// currently not used
 	IndexOption option		  = 9;
+	string index_type = 10;
 }
 
 

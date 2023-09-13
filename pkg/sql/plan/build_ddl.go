@@ -1248,6 +1248,13 @@ func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.In
 		} else {
 			indexDef.Comment = ""
 		}
+
+		//Note: use `make pb` to build IndexType
+		if indexInfo.KeyType != tree.INDEX_TYPE_INVALID {
+			indexDef.IndexType = indexInfo.KeyType.ToString()
+		} else {
+			indexDef.IndexType = ""
+		}
 		createTable.TableDef.Indexes = append(createTable.TableDef.Indexes, indexDef)
 	}
 	return nil
