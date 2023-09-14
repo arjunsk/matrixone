@@ -35,6 +35,10 @@ type faissClustering struct {
 
 var _ Clustering = new(faissClustering)
 
+func NewFaissClustering() Clustering {
+	return &faissClustering{}
+}
+
 func (f *faissClustering) ComputeClusters(clusterCnt int64, data [][]float32) (centroids [][]float32, err error) {
 	if len(data) == 0 {
 		return nil, moerr.NewInternalErrorNoCtx("empty rows")
@@ -82,6 +86,11 @@ func (f *faissClustering) ComputeClusters(clusterCnt int64, data [][]float32) (c
 		centroids[r] = centroidsFlat[r*dims : (r+1)*dims]
 	}
 	return
+}
+
+func (f *faissClustering) Close() {
+	//TODO implement me
+	panic("implement me")
 }
 
 func getLastError() error {

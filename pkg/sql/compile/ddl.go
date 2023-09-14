@@ -17,6 +17,7 @@ package compile
 import (
 	"context"
 	"fmt"
+	"github.com/matrixorigin/matrixone/pkg/sql/compile/sec_idx/ivf"
 	"math"
 
 	"github.com/matrixorigin/matrixone/pkg/catalog"
@@ -199,6 +200,27 @@ func (s *Scope) AlterTableReIndex(c *Compile) (err error) {
 				}
 
 				// 2. generate centroids
+				var clustering = ivf.NewFaissClustering()
+				clusters, err := clustering.ComputeClusters(10, f32vectors)
+				if err != nil {
+					return err
+				}
+
+				// 3. feed this to the 1st auxiliary table
+				for _, cluster := range clusters {
+					vecStr := types.ArrayToString[float32](cluster)
+					err := genInsertCentroidsToAuxTable1(c, dbName, tblName, secondaryKey, vecStr)
+					if err != nil {
+						return err
+					}
+				}
+
+				//4. feed data to 2nd auxiliary table
+				for _, f32vector := range f32vectors {
+
+					//TODO: what if the row gets deleted while indexing. Now we have zombie index row.
+					//TODO: look into garbase collection of old entries
+				}
 
 			case types.T_array_float64:
 				return moerr.NewInternalErrorNoCtx("not yet supported for vecf64")

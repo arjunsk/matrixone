@@ -78,7 +78,8 @@ var (
 
 var (
 	//TODO: handle null scenario
-	selectVectorColumnFormat = "select %s from %s.%s;"
+	selectVectorColumnFormat   = `select %s from %s.%s;`
+	insertCentroidsToAuxTable1 = `insert into %s.%s (%s) values(decode(%s,"hex"))`
 )
 
 // genCreateIndexTableSql: Generate ddl statements for creating index table
@@ -124,7 +125,8 @@ func genCreateIndexTableSqlForIvfCentroids(indexTableDef *plan.TableDef, indexTb
 	}
 
 	// col1 - static column for enumerating centroids
-	sql += "mo_index_idx_col INT primary key, "
+	//TODO: support versioning
+	sql += "mo_index_idx_col INT primary key auto increment, "
 
 	// col2 - holds centroids
 	idxCol := planCols[0]
@@ -475,8 +477,8 @@ func genNewUniqueIndexDuplicateCheck(c *Compile, database, table, cols string) e
 }
 
 func genFetchVectorColumnValues[T types.RealNumbers](c *Compile, database, table, col string) (out [][]T, err error) {
-	duplicateCheckSql := fmt.Sprintf(selectVectorColumnFormat, col, database, table)
-	res, err := c.runSqlWithResult(duplicateCheckSql)
+	sql := fmt.Sprintf(selectVectorColumnFormat, col, database, table)
+	res, err := c.runSqlWithResult(sql)
 	if err != nil {
 		return nil, err
 	}
@@ -493,6 +495,15 @@ func genFetchVectorColumnValues[T types.RealNumbers](c *Compile, database, table
 		out[i] = types.BytesToArray[T](bytesArr[i])
 	}
 	return
+}
+
+func genInsertCentroidsToAuxTable1(c *Compile, database, table, col, value string) (err error) {
+	sql := fmt.Sprintf(insertCentroidsToAuxTable1, database, table, col, value)
+	err = c.runSql(sql)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func partsToColsStr(parts []string) string {
