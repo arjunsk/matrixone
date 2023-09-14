@@ -1249,11 +1249,11 @@ func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.In
 			indexDef.Comment = ""
 		}
 
-		//Note: use `make pb` to build IndexType
+		//Note: use `make pb` to build IndexAlgo
 		if indexInfo.KeyType != tree.INDEX_TYPE_INVALID {
-			indexDef.IndexType = indexInfo.KeyType.ToString()
+			indexDef.IndexAlgo = indexInfo.KeyType.ToString()
 		} else {
-			indexDef.IndexType = ""
+			indexDef.IndexAlgo = ""
 		}
 		createTable.TableDef.Indexes = append(createTable.TableDef.Indexes, indexDef)
 	}

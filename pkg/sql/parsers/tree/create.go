@@ -722,6 +722,7 @@ func NewAttributeOnUpdate(e Expr) *AttributeOnUpdate {
 	}
 }
 
+// IndexType is called `IndexAlgo` in `plan`.
 type IndexType int
 
 func (it IndexType) ToString() string {

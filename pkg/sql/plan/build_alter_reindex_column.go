@@ -48,11 +48,11 @@ func buildAlterTableReindex(stmt *tree.AlterTable, ctx CompilerContext) (*Plan, 
 	// check index
 	found := false
 	var indexTableName string
-	var indexType string
+	var IndexAlgo string
 	for _, indexdef := range tableDef.Indexes {
 		if secKeyName == indexdef.IndexName {
 			indexTableName = indexdef.IndexTableName
-			indexType = indexdef.IndexType
+			IndexAlgo = indexdef.IndexAlgo
 			found = true
 			break
 		}
@@ -71,7 +71,7 @@ func buildAlterTableReindex(stmt *tree.AlterTable, ctx CompilerContext) (*Plan, 
 				OriginTableSecondaryKeyName: secKeyName,
 				OriginTableSecondaryKeyType: secKeyType,
 				IndexTableName:              indexTableName,
-				IndexType:                   indexType,
+				IndexAlgo:                   IndexAlgo,
 			},
 		},
 	}
