@@ -188,44 +188,49 @@ func (s *Scope) AlterTableReIndex(c *Compile) (err error) {
 	for _, action := range qry.Actions {
 		switch act := action.Action.(type) {
 		case *plan.AlterTable_Action_ReindexCol:
-			alterTableReindex := act.ReindexCol
-			primaryKey := alterTableReindex.OriginTablePrimaryKeyName
-			secondaryKey := alterTableReindex.OriginTableSecondaryKeyName
+			switch action.GetReindexCol().IndexType {
+			case tree.INDEX_TYPE_IVFFLAT.ToString():
+				alterTableReindex := act.ReindexCol
+				primaryKey := alterTableReindex.OriginTablePrimaryKeyName
+				secondaryKey := alterTableReindex.OriginTableSecondaryKeyName
 
-			switch types.T(alterTableReindex.OriginTableSecondaryKeyType.Id) {
-			case types.T_array_float32:
-				//  1. Fetch the data
-				f32vectors, err := genFetchVectorColumnValues[float32](c, dbName, tblName, secondaryKey)
-				if err != nil {
-					return err
-				}
-
-				// 2. generate centroids
-				var clustering = ivf.NewFaissClustering()
-				clusters, err := clustering.ComputeClusters(10, f32vectors)
-				if err != nil {
-					return err
-				}
-
-				// 3. feed this to the 1st auxiliary table
-				for _, cluster := range clusters {
-					vecStr := types.ArrayToString[float32](cluster)
-					err := genInsertCentroidsToAuxTable1(c, dbName, tblName, secondaryKey, vecStr)
+				switch types.T(alterTableReindex.OriginTableSecondaryKeyType.Id) {
+				case types.T_array_float32:
+					//  1. Fetch the data
+					f32vectors, err := genFetchVectorColumnValues[float32](c, dbName, tblName, secondaryKey)
 					if err != nil {
 						return err
 					}
-				}
 
-				//4. feed data to 2nd auxiliary table
-				aux1Name := alterTableReindex.IndexTableName + "centroids"
-				aux2Name := alterTableReindex.IndexTableName + "data"
-				err = genInsertCentroidsToAuxTable2(c, dbName, tblName, aux1Name, aux2Name, secondaryKey, primaryKey)
-				if err != nil {
-					return err
-				}
+					// 2. generate centroids
+					var clustering = ivf.NewFaissClustering()
+					clusters, err := clustering.ComputeClusters(10, f32vectors)
+					if err != nil {
+						return err
+					}
 
-			case types.T_array_float64:
-				return moerr.NewInternalErrorNoCtx("not yet supported for vecf64")
+					// 3. feed this to the 1st auxiliary table
+					for _, cluster := range clusters {
+						vecStr := types.ArrayToString[float32](cluster)
+						err := genInsertCentroidsToAuxTable1(c, dbName, tblName, secondaryKey, vecStr)
+						if err != nil {
+							return err
+						}
+					}
+
+					//4. feed data to 2nd auxiliary table
+					aux1Name := alterTableReindex.IndexTableName + "centroids"
+					aux2Name := alterTableReindex.IndexTableName + "data"
+					err = genInsertCentroidsToAuxTable2(c, dbName, tblName, aux1Name, aux2Name, secondaryKey, primaryKey)
+					if err != nil {
+						return err
+					}
+
+				case types.T_array_float64:
+					return moerr.NewInternalErrorNoCtx("not yet supported for vecf64")
+				}
+			default:
+				return moerr.NewInternalErrorNoCtx("only ivf index supports reindexing")
 			}
 
 		}

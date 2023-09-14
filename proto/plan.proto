@@ -1109,7 +1109,7 @@ message AlterReindexCol {
 	string origin_table_secondary_key_name = 4;
 	Type 	 origin_table_secondary_key_type = 5;
 	string index_table_name = 6;
-	bool index_table_exist = 7;
+	string index_type = 7;
 }
 
 message AlterDropCol {
