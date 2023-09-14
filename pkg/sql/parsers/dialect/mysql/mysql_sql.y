@@ -333,7 +333,7 @@ import (
 %token <str> PROPERTIES
 
 // Index
-%token <str> PARSER VISIBLE INVISIBLE BTREE HASH RTREE BSI IVFFLAT
+%token <str> PARSER VISIBLE INVISIBLE BTREE HASH RTREE BSI IVFFLAT REINDEX
 %token <str> ZONEMAP LEADING BOTH TRAILING UNKNOWN
 
 // Alter
@@ -2653,6 +2653,13 @@ alter_option:
         }
         $$ = tree.AlterTableOption(opt)
     }
+|   REINDEX column_keyword_opt column_name
+        {
+            opt := &tree.AlterOptionReindex{
+                ColumnName:  $3,
+            }
+            $$ = tree.AlterTableOption(opt)
+        }
 |    MODIFY column_keyword_opt column_def column_position
     {
 	opt := &tree.AlterTableModifyColumnClause{

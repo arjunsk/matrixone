@@ -238,6 +238,17 @@ func (node *AlterOptionAlterCheck) Format(ctx *FmtCtx) {
 	}
 }
 
+type AlterOptionReindex struct {
+	alterOptionImpl
+	ColumnName *UnresolvedName
+}
+
+func (node *AlterOptionReindex) Format(ctx *FmtCtx) {
+	ctx.WriteString("reindex ")
+	ctx.WriteString("column ")
+	node.ColumnName.Format(ctx)
+}
+
 type AlterOptionAdd struct {
 	alterOptionImpl
 	Def TableDef

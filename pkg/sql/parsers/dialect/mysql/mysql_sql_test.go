@@ -2093,6 +2093,10 @@ var (
 			output: "alter table t1 modify column b int",
 		},
 		{
+			input:  "alter table t1 reindex column b",
+			output: "alter table t1 reindex column b",
+		},
+		{
 			input:  "alter table t1 modify column b VARCHAR(20) first",
 			output: "alter table t1 modify column b varchar(20) first",
 		},

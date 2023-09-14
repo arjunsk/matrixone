@@ -22,6 +22,7 @@ func init() {
 		"account":                    ACCOUNT,
 		"accounts":                   ACCOUNTS,
 		"add":                        ADD,
+		"reindex":                    REINDEX,
 		"modify":                     MODIFY,
 		"action":                     ACTION,
 		"against":                    AGAINST,
