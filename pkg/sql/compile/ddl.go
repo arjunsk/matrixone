@@ -175,6 +175,41 @@ func getAddColPos(cols []*plan.ColDef, def *plan.ColDef, colName string, pos int
 	return nil, 0, moerr.NewInvalidInputNoCtx("column '%s' doesn't exist in table", colName)
 }
 
+func (s *Scope) AlterTableReIndex(c *Compile) (err error) {
+	qry := s.Plan.GetDdl().GetAlterTable()
+	dbName := qry.Database
+	if dbName == "" {
+		dbName = c.db
+	}
+
+	tblName := qry.GetTableDef().GetName()
+
+	for _, action := range qry.Actions {
+		switch act := action.Action.(type) {
+		case *plan.AlterTable_Action_ReindexCol:
+			alterTableReindex := act.ReindexCol
+			secondaryKey := alterTableReindex.OriginTableSecondaryKeyName
+
+			switch types.T(alterTableReindex.OriginTableSecondaryKeyType.Id) {
+			case types.T_array_float32:
+				//  1. Fetch the data
+				f32vectors, err := genFetchVectorColumnValues[float32](c, dbName, tblName, secondaryKey)
+				if err != nil {
+					return err
+				}
+
+				// 2. generate centroids
+
+			case types.T_array_float64:
+				return moerr.NewInternalErrorNoCtx("not yet supported for vecf64")
+			}
+
+		}
+	}
+
+	return nil
+}
+
 func (s *Scope) AlterTableInplace(c *Compile) error {
 	qry := s.Plan.GetDdl().GetAlterTable()
 	dbName := qry.Database

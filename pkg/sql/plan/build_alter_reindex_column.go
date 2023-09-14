@@ -37,19 +37,23 @@ func buildAlterTableReindex(stmt *tree.AlterTable, ctx CompilerContext) (*Plan, 
 
 	alterTable := &plan.AlterTable{
 		Actions:       make([]*plan.AlterTable_Action, len(stmt.Options)),
-		AlgorithmType: plan.AlterTable_INPLACE, //TODO: change to DEFAULT
+		AlgorithmType: plan.AlterTable_DEFAULT, //TODO: change to DEFAULT
 	}
+
 	oriPriKeyName := getTablePriKeyName(tableDef.Pkey)
 
-	_, _, secondaryIndexKey := stmt.Options[0].(*tree.AlterOptionReindex).ColumnName.GetNames()
+	_, _, secKeyName := stmt.Options[0].(*tree.AlterOptionReindex).ColumnName.GetNames()
+	_, secKeyType := getSecKeyPos(tableDef, secKeyName)
+
 	alterTable.Actions[0] = &plan.AlterTable_Action{
 		Action: &plan.AlterTable_Action_ReindexCol{
 			ReindexCol: &plan.AlterReindexCol{
-				DbName:                  databaseName,
-				TableName:               tableName,
-				OriginTablePrimaryKey:   oriPriKeyName,
-				OriginTableSecondaryKey: secondaryIndexKey,
-				IndexTableExist:         true,
+				DbName:                      databaseName,
+				TableName:                   tableName,
+				OriginTablePrimaryKeyName:   oriPriKeyName,
+				OriginTableSecondaryKeyName: secKeyName,
+				OriginTableSecondaryKeyType: secKeyType,
+				IndexTableExist:             true,
 			},
 		},
 	}

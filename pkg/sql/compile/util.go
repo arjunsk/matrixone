@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	plan2 "github.com/matrixorigin/matrixone/pkg/sql/plan"
+	"github.com/matrixorigin/matrixone/pkg/util/executor"
 	"time"
 
 	"github.com/matrixorigin/matrixone/pkg/catalog"
@@ -73,6 +74,11 @@ var (
 	deleteMoIndexesWithTableIdAndIndexNameFormat = `delete from mo_catalog.mo_indexes where table_id = %v and name = '%s';`
 	updateMoIndexesVisibleFormat                 = `update mo_catalog.mo_indexes set is_visible = %v where table_id = %v and name = '%s';`
 	updateMoIndexesTruncateTableFormat           = `update mo_catalog.mo_indexes set table_id = %v where table_id = %v`
+)
+
+var (
+	//TODO: handle null scenario
+	selectVectorColumnFormat = "select %s from %s.%s;"
 )
 
 // genCreateIndexTableSql: Generate ddl statements for creating index table
@@ -466,6 +472,27 @@ func genNewUniqueIndexDuplicateCheck(c *Compile, database, table, cols string) e
 		return true
 	})
 	return err
+}
+
+func genFetchVectorColumnValues[T types.RealNumbers](c *Compile, database, table, col string) (out [][]T, err error) {
+	duplicateCheckSql := fmt.Sprintf(selectVectorColumnFormat, col, database, table)
+	res, err := c.runSqlWithResult(duplicateCheckSql)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Close()
+
+	var bytesArr [][]byte
+	res.ReadRows(func(cols []*vector.Vector) bool {
+		bytesArr = append(bytesArr, executor.GetBytesRows(cols[0])...)
+		return true
+	})
+
+	out = make([][]T, len(bytesArr))
+	for i := 0; i < len(out); i++ {
+		out[i] = types.BytesToArray[T](bytesArr[i])
+	}
+	return
 }
 
 func partsToColsStr(parts []string) string {

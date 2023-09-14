@@ -455,6 +455,16 @@ func getTablePriKeyName(priKeyDef *plan.PrimaryKeyDef) string {
 	}
 }
 
+func getSecKeyPos(tableDef *TableDef, indexName string) (int, *Type) {
+
+	for i, col := range tableDef.Cols {
+		if col.Name == indexName {
+			return i, col.Typ
+		}
+	}
+	return -1, nil
+}
+
 // Check whether the table column name is an internal key
 func checkTableColumnNameValid(name string) bool {
 	if name == catalog.Row_ID || name == catalog.CPrimaryKeyColName {

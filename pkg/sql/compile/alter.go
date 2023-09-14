@@ -135,9 +135,13 @@ func (s *Scope) AlterTable(c *Compile) error {
 	qry := s.Plan.GetDdl().GetAlterTable()
 	if qry.AlgorithmType == plan.AlterTable_COPY {
 		return s.AlterTableCopy(c)
-	} else {
+	} else if qry.AlgorithmType == plan.AlterTable_INPLACE {
 		return s.AlterTableInplace(c)
+	} else if qry.AlgorithmType == plan.AlterTable_DEFAULT {
+		return s.AlterTableReIndex(c)
 	}
+
+	return moerr.NewInternalErrorNoCtx("alter-table algo not defined")
 }
 
 // updateTableForeignKeyColId update foreign key colid of child table references
