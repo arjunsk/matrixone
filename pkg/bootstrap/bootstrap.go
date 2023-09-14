@@ -126,11 +126,16 @@ var (
 			catalog.MOTaskDB, time.Now().UnixNano()),
 	}
 
-	conditionalUpgradeSQLs = []string{
-		//TODO: implement "IF NOT EXISTS" for ALTER TABLE
-		fmt.Sprintf(`alter table %s.%s 
-				add column(algorithm varchar(20)) after type 
-    			IF NOT EXISTS algorithm;`, catalog.MO_CATALOG, catalog.MO_INDEXES),
+	conditionalUpgradeSQLs = []struct {
+		ifSql   string
+		thenSql []string
+	}{
+		{
+			ifSql: fmt.Sprintf(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s;`, catalog.MO_CATALOG, catalog.MO_INDEXES, "algorithm"),
+			thenSql: []string{
+				fmt.Sprintf(`alter table %s.%s add column(algorithm varchar(20)) after type;`, catalog.MO_CATALOG, catalog.MO_INDEXES),
+			},
+		},
 	}
 )
 
@@ -207,9 +212,15 @@ func (b *bootstrapper) checkAlreadyBootstrapped(ctx context.Context) (bool, erro
 }
 func (b *bootstrapper) execConditionalUpgrades(ctx context.Context) error {
 
-	if err := b.exec.ExecTxn(ctx, execFunc(conditionalUpgradeSQLs), executor.Options{}); err != nil {
-		return err
+	for _, conditionalUpgradeSQL := range conditionalUpgradeSQLs {
+		result, err := b.exec.Exec(ctx, conditionalUpgradeSQL.ifSql, executor.Options{})
+		if err != nil || len(result.Batches) == 0 {
+			if err = b.exec.ExecTxn(ctx, execFunc(conditionalUpgradeSQL.thenSql), executor.Options{}); err != nil {
+				return err
+			}
+		}
 	}
+
 	getLogger().Info("successfully completed upgrade")
 	return nil
 }
