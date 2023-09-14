@@ -188,7 +188,7 @@ func (s *Scope) AlterTableReIndex(c *Compile) (err error) {
 	for _, action := range qry.Actions {
 		switch act := action.Action.(type) {
 		case *plan.AlterTable_Action_ReindexCol:
-			switch action.GetReindexCol().IndexType {
+			switch action.GetReindexCol().IndexAlgo {
 			case tree.INDEX_TYPE_IVFFLAT.ToString():
 				alterTableReindex := act.ReindexCol
 				primaryKey := alterTableReindex.OriginTablePrimaryKeyName
@@ -888,7 +888,7 @@ func (s *Scope) CreateIndex(c *Compile) error {
 		}
 	}
 
-	switch indexDef.IndexType {
+	switch indexDef.IndexAlgo {
 	case tree.INDEX_TYPE_IVFFLAT.ToString():
 		def := qry.GetIndex().GetTableDef()
 

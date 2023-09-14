@@ -300,9 +300,8 @@ message IndexDef {
 	bool table_exist        = 6;
 	string comment          = 7;
 	bool visible          = 8;
-	// currently not used
 	IndexOption option		  = 9;
-	string index_type = 10;
+	string index_algo = 10;
 }
 
 
@@ -1109,7 +1108,7 @@ message AlterReindexCol {
 	string origin_table_secondary_key_name = 4;
 	Type 	 origin_table_secondary_key_type = 5;
 	string index_table_name = 6;
-	string index_type = 7;
+	string index_algo = 7;
 }
 
 message AlterDropCol {

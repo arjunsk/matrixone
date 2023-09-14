@@ -291,7 +291,7 @@ func genInsertMOIndexesSql(eg engine.Engine, proc *process.Process, databaseId s
 					fmt.Fprintf(buffer, "'%s', ", index_type)
 
 					//6. algorithm
-					var algorithm = indexdef.IndexType
+					var algorithm = indexdef.IndexAlgo
 					fmt.Fprintf(buffer, "'%s', ", algorithm)
 
 					// 7. index visible
