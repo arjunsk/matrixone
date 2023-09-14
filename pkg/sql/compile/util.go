@@ -80,6 +80,16 @@ var (
 	//TODO: handle null scenario
 	selectVectorColumnFormat   = `select %s from %s.%s;`
 	insertCentroidsToAuxTable1 = `insert into %s.%s (%s) values(decode(%s,"hex"))`
+	insertCentroidsToAuxTable2 = `insert into  %s.%s
+								  SELECT 
+									(
+										SELECT mo_index_idx_col
+										FROM %s.%s
+										ORDER BY inner_product(%s.%s, %s.mo_index_vector_col)
+										LIMIT 1
+									) AS calculated_centroid_id,
+									%s
+									FROM %s.%s`
 )
 
 // genCreateIndexTableSql: Generate ddl statements for creating index table
@@ -130,7 +140,8 @@ func genCreateIndexTableSqlForIvfCentroids(indexTableDef *plan.TableDef, indexTb
 
 	// col2 - holds centroids
 	idxCol := planCols[0]
-	sql += idxCol.Name + " "
+	//sql += idxCol.Name + " "
+	sql += "mo_index_vector_col "
 	typeId := types.T(idxCol.Typ.Id)
 	switch typeId {
 	case types.T_array_float32:
@@ -499,6 +510,21 @@ func genFetchVectorColumnValues[T types.RealNumbers](c *Compile, database, table
 
 func genInsertCentroidsToAuxTable1(c *Compile, database, table, col, value string) (err error) {
 	sql := fmt.Sprintf(insertCentroidsToAuxTable1, database, table, col, value)
+	err = c.runSql(sql)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func genInsertCentroidsToAuxTable2(c *Compile, database, orgTable, aux1Table, aux2Table, orgSKName, orgPKName string) (err error) {
+	sql := fmt.Sprintf(insertCentroidsToAuxTable2,
+		database, aux2Table,
+		database, aux1Table,
+		orgTable, orgSKName,
+		aux1Table,
+		orgPKName,
+		database, orgTable)
 	err = c.runSql(sql)
 	if err != nil {
 		return err

@@ -189,6 +189,7 @@ func (s *Scope) AlterTableReIndex(c *Compile) (err error) {
 		switch act := action.Action.(type) {
 		case *plan.AlterTable_Action_ReindexCol:
 			alterTableReindex := act.ReindexCol
+			primaryKey := alterTableReindex.OriginTablePrimaryKeyName
 			secondaryKey := alterTableReindex.OriginTableSecondaryKeyName
 
 			switch types.T(alterTableReindex.OriginTableSecondaryKeyType.Id) {
@@ -216,10 +217,11 @@ func (s *Scope) AlterTableReIndex(c *Compile) (err error) {
 				}
 
 				//4. feed data to 2nd auxiliary table
-				for _, f32vector := range f32vectors {
-
-					//TODO: what if the row gets deleted while indexing. Now we have zombie index row.
-					//TODO: look into garbase collection of old entries
+				aux1Name := alterTableReindex.IndexTableName + "centroids"
+				aux2Name := alterTableReindex.IndexTableName + "data"
+				err = genInsertCentroidsToAuxTable2(c, dbName, tblName, aux1Name, aux2Name, secondaryKey, primaryKey)
+				if err != nil {
+					return err
 				}
 
 			case types.T_array_float64:

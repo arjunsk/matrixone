@@ -45,6 +45,21 @@ func buildAlterTableReindex(stmt *tree.AlterTable, ctx CompilerContext) (*Plan, 
 	_, _, secKeyName := stmt.Options[0].(*tree.AlterOptionReindex).ColumnName.GetNames()
 	_, secKeyType := getSecKeyPos(tableDef, secKeyName)
 
+	// check index
+	found := false
+	var indexTableName string
+	for _, indexdef := range tableDef.Indexes {
+		if secKeyName == indexdef.IndexName {
+			indexTableName = indexdef.IndexTableName
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return nil, moerr.NewInternalErrorNoCtx("not found")
+	}
+
 	alterTable.Actions[0] = &plan.AlterTable_Action{
 		Action: &plan.AlterTable_Action_ReindexCol{
 			ReindexCol: &plan.AlterReindexCol{
@@ -54,6 +69,7 @@ func buildAlterTableReindex(stmt *tree.AlterTable, ctx CompilerContext) (*Plan, 
 				OriginTableSecondaryKeyName: secKeyName,
 				OriginTableSecondaryKeyType: secKeyType,
 				IndexTableExist:             true,
+				IndexTableName:              indexTableName,
 			},
 		},
 	}
