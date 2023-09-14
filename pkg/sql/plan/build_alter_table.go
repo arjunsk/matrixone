@@ -541,6 +541,12 @@ func buildAlterTable(stmt *tree.AlterTable, ctx CompilerContext) (*Plan, error) 
 		return nil, moerr.NewInvalidInput(ctx.GetContext(), "can't add/drop column for partition table now")
 	}
 
+	if len(stmt.Options) == 1 {
+		if _, ok := stmt.Options[0].(*tree.AlterOptionReindex); ok {
+			return buildAlterTableReindex(stmt, ctx)
+		}
+	}
+
 	algorithm := ResolveAlterTableAlgorithm(ctx.GetContext(), stmt.Options)
 	if algorithm == plan.AlterTable_COPY {
 		return buildAlterTableCopy(stmt, ctx)
