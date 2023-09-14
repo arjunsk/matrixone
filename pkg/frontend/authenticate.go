@@ -7658,13 +7658,24 @@ func InitGeneralTenant(ctx context.Context, ses *Session, ca *tree.CreateAccount
 	}
 
 	executeConditionalUpgrades := func() error {
-		addAlgoColumnInMoIndex := fmt.Sprintf(`alter table %s.%s 
-				add column(algorithm varchar(20)) after type 
-    			IF NOT EXISTS algorithm;`, catalog.MO_CATALOG, catalog.MO_INDEXES)
 
-		err = bh.Exec(newTenantCtx, addAlgoColumnInMoIndex)
-		if err != nil {
-			return err
+		conditionalUpgradeSQLs := []struct {
+			ifSql   string
+			thenSql string
+		}{
+			{
+				ifSql:   fmt.Sprintf(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s;`, catalog.MO_CATALOG, catalog.MO_INDEXES, "algorithm"),
+				thenSql: fmt.Sprintf(`alter table %s.%s add column(algorithm varchar(20)) after type;`, catalog.MO_CATALOG, catalog.MO_INDEXES),
+			},
+		}
+
+		for _, conditionalUpgradeSQL := range conditionalUpgradeSQLs {
+			err := bh.Exec(newTenantCtx, conditionalUpgradeSQL.ifSql)
+			if err != nil || len(bh.GetExecResultBatches()) == 0 {
+				if err = bh.Exec(newTenantCtx, conditionalUpgradeSQL.thenSql); err != nil {
+					return err
+				}
+			}
 		}
 		return nil
 	}
