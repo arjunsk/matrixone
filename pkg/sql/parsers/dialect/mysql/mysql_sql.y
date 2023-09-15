@@ -7073,12 +7073,20 @@ index_def:
     {
         keyTyp := tree.INDEX_TYPE_INVALID
         if $3[1] != "" {
-               t := strings.ToLower($3[1])
+            t := strings.ToLower($3[1])
             switch t {
+            case "btree":
+            	keyType = tree.INDEX_TYPE_BTREE
+            case "hash":
+            	keyType = tree.INDEX_TYPE_HASH
+	   case "rtree":
+	   	keyType = tree.INDEX_TYPE_RTREE
             case "zonemap":
                 keyTyp = tree.INDEX_TYPE_ZONEMAP
             case "bsi":
                 keyTyp = tree.INDEX_TYPE_BSI
+            case "ivfflat":
+            	keyTyp = tree.INDEX_TYPE_IVFFLAT
             default:
                 yylex.Error("Invail the type of index")
                 return 1
