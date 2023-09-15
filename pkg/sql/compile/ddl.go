@@ -861,12 +861,13 @@ func (s *Scope) CreateIndex(c *Compile) error {
 	}
 	tableId := r.GetTableID(c.ctx)
 
-	tableDef := plan2.DeepCopyTableDef(qry.TableDef)
+	originTableDef := plan2.DeepCopyTableDef(qry.TableDef)
+	// indexDef is either UniqueIndex or SecondaryIndex
 	indexDef := qry.GetIndex().GetTableDef().Indexes[0]
 
 	if indexDef.Unique {
 		// 0. check original data is not duplicated
-		err = genNewUniqueIndexDuplicateCheck(c, qry.Database, tableDef.Name, partsToColsStr(indexDef.Parts))
+		err = genNewUniqueIndexDuplicateCheck(c, qry.Database, originTableDef.Name, partsToColsStr(indexDef.Parts))
 		if err != nil {
 			return err
 		}
@@ -874,51 +875,32 @@ func (s *Scope) CreateIndex(c *Compile) error {
 
 	// build and create index table for unique index
 	if qry.TableExist {
-		def := qry.GetIndex().GetIndexTables()[0]
-		createSQL := genCreateIndexTableSql(def, indexDef, qry.Database)
-		err = c.runSql(createSQL)
-		if err != nil {
-			return err
-		}
+		for i, _ := range qry.GetIndex().GetIndexTables() {
+			// create tables defined by plan
+			indexTableDef := qry.GetIndex().GetIndexTables()[i]
+			createSQL := genCreateIndexTableSql(indexTableDef, indexDef, qry.Database)
+			err = c.runSql(createSQL)
+			if err != nil {
+				return err
+			}
 
-		insertSQL := genInsertIndexTableSql(tableDef, indexDef, qry.Database)
-		err = c.runSql(insertSQL)
-		if err != nil {
-			return err
-		}
-	}
+			if indexDef.Unique {
+				//TODO: can this cause bug?
+				insertSQL := genInsertIndexTableSql(originTableDef, indexDef, qry.Database)
+				err = c.runSql(insertSQL)
+				if err != nil {
+					return err
+				}
+			} else {
+				if indexTableDef.LoadData {
+					//TODO: how to distinguish between two tables
+					switch indexDef.IndexAlgo {
+					case tree.INDEX_TYPE_IVFFLAT.ToString():
 
-	switch indexDef.IndexAlgo {
-	case tree.INDEX_TYPE_IVFFLAT.ToString():
-		def := qry.GetIndex().GetTableDef()
+					}
+				}
+			}
 
-		// auxiliary table 1 - centroids
-		defs, err := r.GetPrimaryKeys(c.ctx)
-		if err != nil {
-			return err
-		}
-		if len(defs) != 1 {
-			panic("invalid primary keys")
-		}
-		indexTblName1 := indexDef.IndexTableName + "centroids"
-		createSQL, err := genCreateIndexTableSqlForIvfCentroids(def, indexTblName1, qry.Database, defs[0].Type)
-		if err != nil {
-			return err
-		}
-		err = c.runSql(createSQL)
-		if err != nil {
-			return err
-		}
-
-		// auxiliary table 2 - secondary index
-		indexTblName2 := indexDef.IndexTableName + "data"
-		createSQL, err = genCreateIndexTableSqlForIvfData(def, indexTblName2, qry.Database, defs[0].Type)
-		if err != nil {
-			return err
-		}
-		err = c.runSql(createSQL)
-		if err != nil {
-			return err
 		}
 	}
 
