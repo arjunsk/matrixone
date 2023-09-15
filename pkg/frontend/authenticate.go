@@ -7665,7 +7665,7 @@ func InitGeneralTenant(ctx context.Context, ses *Session, ca *tree.CreateAccount
 		}{
 			{
 				ifSql:   fmt.Sprintf(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s;`, catalog.MO_CATALOG, catalog.MO_INDEXES, "algorithm"),
-				thenSql: fmt.Sprintf(`alter table %s.%s add column(algorithm varchar(20)) after type;`, catalog.MO_CATALOG, catalog.MO_INDEXES),
+				thenSql: fmt.Sprintf(`alter table %s.%s add column algorithm varchar(20) after type;`, catalog.MO_CATALOG, catalog.MO_INDEXES),
 			},
 		}
 
