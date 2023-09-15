@@ -875,6 +875,7 @@ func (s *Scope) CreateIndex(c *Compile) error {
 
 	// build and create index table for unique index
 	if qry.TableExist {
+
 		for i, _ := range qry.GetIndex().GetIndexTables() {
 			// create tables defined by plan
 			indexTableDef := qry.GetIndex().GetIndexTables()[i]
@@ -884,23 +885,27 @@ func (s *Scope) CreateIndex(c *Compile) error {
 				return err
 			}
 
-			if indexDef.Unique {
-				//TODO: can this cause bug?
-				insertSQL := genInsertIndexTableSql(originTableDef, indexDef, qry.Database)
-				err = c.runSql(insertSQL)
-				if err != nil {
-					return err
-				}
-			} else {
-				if indexTableDef.LoadData {
-					//TODO: how to distinguish between two tables
-					switch indexDef.IndexAlgo {
-					case tree.INDEX_TYPE_IVFFLAT.ToString():
+			if !indexDef.Unique && indexTableDef.LoadData {
+				//TODO: how to distinguish between two tables
+				switch indexDef.IndexAlgo {
+				case tree.INDEX_TYPE_IVFFLAT.ToString():
+					if indexTableDef.TableType == catalog.SystemIvfCentroidsRel {
+
+					} else if indexTableDef.TableType == catalog.SystemIvfDataRel {
 
 					}
 				}
+
 			}
 
+		}
+
+		if indexDef.Unique {
+			insertSQL := genInsertIndexTableSql(originTableDef, indexDef, qry.Database)
+			err = c.runSql(insertSQL)
+			if err != nil {
+				return err
+			}
 		}
 	}
 

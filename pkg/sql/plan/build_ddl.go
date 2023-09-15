@@ -1309,6 +1309,7 @@ func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.In
 				tableDef1.Cols = append(tableDef1.Cols, colDefCentroids)
 
 				// 1.c append the tableDef
+				tableDef1.TableType = catalog.SystemIvfCentroidsRel
 				tableDef1.LoadData = false
 				createTable.IndexTables = append(createTable.IndexTables, tableDef1)
 			}
@@ -1355,6 +1356,7 @@ func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.In
 				tableDef2.Cols = append(tableDef2.Cols, colDefPk)
 
 				// 2.c append the tableDef
+				tableDef2.TableType = catalog.SystemIvfDataRel
 				tableDef2.LoadData = false
 				createTable.IndexTables = append(createTable.IndexTables, tableDef2)
 			}

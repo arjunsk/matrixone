@@ -202,7 +202,9 @@ const (
 		the partition table contains the data of the partition.
 		the table partitioned has multiple partition tables
 	*/
-	SystemPartitionRel = "partition"
+	SystemPartitionRel    = "partition"
+	SystemIvfCentroidsRel = "centroids"
+	SystemIvfDataRel      = "data"
 
 	SystemColPKConstraint = "p"
 	SystemColNoConstraint = "n"
