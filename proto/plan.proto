@@ -439,6 +439,9 @@ message TableDef {
 	bool is_temporary = 29;
 
 	uint64 auto_incr_offset = 30;
+
+	// used by secondary index
+	bool loadData = 31;
 }
 
 message TableFunction{
