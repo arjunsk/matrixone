@@ -313,7 +313,7 @@ func genInsertMOIndexesSql(eg engine.Engine, proc *process.Process, databaseId s
 					var algorithm = ""
 					fmt.Fprintf(buffer, "'%s', ", algorithm)
 
-					//7. algorithm
+					//7. algorithm_level
 					var algorithm_level = 0
 					fmt.Fprintf(buffer, "'%d', ", algorithm_level)
 
