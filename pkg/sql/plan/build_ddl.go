@@ -1261,10 +1261,11 @@ func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.In
 
 			// 1. create ivf-flat aux1 table
 			{
-				indexTableName, err := util.BuildIndexTableName(ctx.GetContext(), true)
+				indexTableName, err := util.BuildIndexTableName(ctx.GetContext(), false)
 				if err != nil {
 					return false, err
 				}
+				indexTableName += "aux1"
 				tableDef1 := &TableDef{
 					Name: indexTableName,
 				}
@@ -1277,6 +1278,7 @@ func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.In
 					Typ: &Type{
 						Id: int32(types.T_int32),
 					},
+					Primary: true,
 					Default: &plan.Default{
 						NullAbility:  false,
 						Expr:         nil,
@@ -1316,12 +1318,13 @@ func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.In
 
 			// 2. create ivf-flat aux2 table
 			{
-				indexTableName, err := util.BuildIndexTableName(ctx.GetContext(), true)
+				indexTableName2, err := util.BuildIndexTableName(ctx.GetContext(), false)
 				if err != nil {
 					return false, err
 				}
+				indexTableName2 += "aux2"
 				tableDef2 := &TableDef{
-					Name: indexTableName,
+					Name: indexTableName2,
 				}
 
 				// 2.a centroid id column
@@ -1678,6 +1681,7 @@ func buildCreateIndex(stmt *tree.CreateIndex, ctx CompilerContext) (*Plan, error
 			Name:        indexName,
 			KeyParts:    stmt.KeyParts,
 			IndexOption: stmt.IndexOption,
+			KeyType:     stmt.IndexOption.IType,
 		}
 	default:
 		return nil, moerr.NewNotSupported(ctx.GetContext(), "statement: '%v'", tree.String(stmt, dialect.MYSQL))

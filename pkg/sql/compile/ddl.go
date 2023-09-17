@@ -871,15 +871,32 @@ func (s *Scope) CreateIndex(c *Compile) error {
 		if err != nil {
 			return err
 		}
+
+		if qry.TableExist {
+			// create tables defined by plan
+			indexTableDef := qry.GetIndex().GetIndexTables()[0]
+			createSQL := genCreateIndexTableSql(indexTableDef, indexDef, qry.Database)
+			err = c.runSql(createSQL)
+			if err != nil {
+				return err
+			}
+
+			// insert
+			insertSQL := genInsertIndexTableSql(originTableDef, indexDef, qry.Database)
+			err = c.runSql(insertSQL)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	// build and create index table for unique index
-	if qry.TableExist {
+	if !indexDef.Unique && qry.TableExist {
 
 		for i, _ := range qry.GetIndex().GetIndexTables() {
 			// create tables defined by plan
 			indexTableDef := qry.GetIndex().GetIndexTables()[i]
-			createSQL := genCreateIndexTableSql(indexTableDef, indexDef, qry.Database)
+			createSQL := genCreateIndexTableSql2(indexTableDef, qry.GetIndex().GetIndexTables()[i].Name, qry.Database)
 			err = c.runSql(createSQL)
 			if err != nil {
 				return err
@@ -898,14 +915,6 @@ func (s *Scope) CreateIndex(c *Compile) error {
 
 			}
 
-		}
-
-		if indexDef.Unique {
-			insertSQL := genInsertIndexTableSql(originTableDef, indexDef, qry.Database)
-			err = c.runSql(insertSQL)
-			if err != nil {
-				return err
-			}
 		}
 	}
 
@@ -936,16 +945,36 @@ func (s *Scope) CreateIndex(c *Compile) error {
 		return err
 	}
 
-	// generate insert into mo_indexes metadata
-	sql, err := makeInsertSingleIndexSQL(c.e, c.proc, databaseId, tableId, indexDef)
-	if err != nil {
-		return err
+	if indexDef.Unique {
+		// generate insert into mo_indexes metadata
+		sql, err := makeInsertSingleIndexSQL(c.e, c.proc, databaseId, tableId, indexDef)
+		if err != nil {
+			return err
+		}
+		err = c.runSql(sql)
+		if err != nil {
+			return err
+		}
+		return nil
+	} else {
+
+		for i, _ := range qry.GetIndex().GetIndexTables() {
+			// generate insert into mo_indexes metadata
+			indexDef.TableExist = true
+			indexDef.IndexTableName = qry.GetIndex().GetIndexTables()[i].Name
+			sql, err := makeInsertSingleIndexSQL(c.e, c.proc, databaseId, tableId, indexDef)
+			if err != nil {
+				return err
+			}
+			err = c.runSql(sql)
+			if err != nil {
+				return err
+			}
+
+		}
+		return nil
 	}
-	err = c.runSql(sql)
-	if err != nil {
-		return err
-	}
-	return nil
+
 }
 
 func (s *Scope) DropIndex(c *Compile) error {
