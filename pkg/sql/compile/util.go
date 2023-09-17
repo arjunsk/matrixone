@@ -92,8 +92,8 @@ var (
 									FROM %s.%s`
 )
 
-// genCreateIndexTableSql: Generate ddl statements for creating index table
-func genCreateIndexTableSql(indexTableDef *plan.TableDef, indexDef *plan.IndexDef, DBName string) string {
+// genCreateIndexTableSqlUniqueIndex: Generate ddl statements for creating unique index table
+func genCreateIndexTableSqlUniqueIndex(indexTableDef *plan.TableDef, indexDef *plan.IndexDef, DBName string) string {
 	var sql string
 	planCols := indexTableDef.GetCols()
 	for i, planCol := range planCols {
@@ -115,8 +115,8 @@ func genCreateIndexTableSql(indexTableDef *plan.TableDef, indexDef *plan.IndexDe
 			sql += fmt.Sprintf("DECIMAL(%d,%d)", planCol.Typ.Width, planCol.Typ.Scale)
 		case types.T_decimal128:
 			sql += fmt.Sprintf("DECIAML(%d,%d)", planCol.Typ.Width, planCol.Typ.Scale)
+		//NOTE: no need to add T_array here as T_array will not be part of unique column
 		default:
-			//TODO: check for T_array corner cases?
 			sql += typeId.String()
 		}
 		if i == 0 {
@@ -126,7 +126,7 @@ func genCreateIndexTableSql(indexTableDef *plan.TableDef, indexDef *plan.IndexDe
 	return fmt.Sprintf(createIndexTableForamt, DBName, indexDef.IndexTableName, sql)
 }
 
-func genCreateIndexTableSql2(indexTableDef *plan.TableDef, tableName string, DBName string) string {
+func genCreateIndexTableSqlForSecondaryIndex(indexTableDef *plan.TableDef, tableName string, DBName string) string {
 	var sql string
 	planCols := indexTableDef.GetCols()
 	for i, planCol := range planCols {
@@ -153,15 +153,12 @@ func genCreateIndexTableSql2(indexTableDef *plan.TableDef, tableName string, DBN
 		case types.T_array_float64:
 			sql += fmt.Sprintf("VECF64(%d)", planCol.Typ.Width)
 		default:
-			//TODO: check for T_array corner cases?
 			sql += typeId.String()
 		}
 		if planCol.Primary {
 			sql += " primary key"
 		}
-		//if i == 0 {
-		//
-		//}
+		//TODO: can be merged to genCreateIndexTableSqlUniqueIndex later on.
 	}
 	return fmt.Sprintf(createIndexTableForamt, DBName, tableName, sql)
 }

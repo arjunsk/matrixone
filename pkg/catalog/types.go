@@ -206,9 +206,11 @@ const (
 		the partition table contains the data of the partition.
 		the table partitioned has multiple partition tables
 	*/
-	SystemPartitionRel    = "partition"
-	SystemIvfCentroidsRel = "ivf_level1"
-	SystemIvfDataRel      = "ivf_level0"
+	SystemPartitionRel = "partition"
+
+	// Secondary Index Relations
+	SystemSecondaryIndex_IvfCentroidsRel        = "ivf_centroids"
+	SystemSecondaryIndex_IvfCentroidsMappingRel = "ivf_centroids_mapping"
 
 	SystemColPKConstraint = "p"
 	SystemColNoConstraint = "n"

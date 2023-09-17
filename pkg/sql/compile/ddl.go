@@ -393,7 +393,7 @@ func (s *Scope) AlterTableInplace(c *Compile) error {
 			if act.AddIndex.IndexTableExist {
 				def := act.AddIndex.IndexInfo.GetIndexTables()[0]
 				// 2. create index table from unique index object
-				createSQL := genCreateIndexTableSql(def, indexDef, qry.Database)
+				createSQL := genCreateIndexTableSqlUniqueIndex(def, indexDef, qry.Database)
 				err = c.runSql(createSQL)
 				if err != nil {
 					return err
@@ -875,7 +875,7 @@ func (s *Scope) CreateIndex(c *Compile) error {
 		if qry.TableExist {
 			// create tables defined by plan
 			indexTableDef := qry.GetIndex().GetIndexTables()[0]
-			createSQL := genCreateIndexTableSql(indexTableDef, indexDef, qry.Database)
+			createSQL := genCreateIndexTableSqlUniqueIndex(indexTableDef, indexDef, qry.Database)
 			err = c.runSql(createSQL)
 			if err != nil {
 				return err
@@ -896,16 +896,16 @@ func (s *Scope) CreateIndex(c *Compile) error {
 		for i, _ := range qry.GetIndex().GetIndexTables() {
 			// create tables defined by plan
 			indexTableDef := qry.GetIndex().GetIndexTables()[i]
-			createSQL := genCreateIndexTableSql2(indexTableDef, qry.GetIndex().GetIndexTables()[i].Name, qry.Database)
+			createSQL := genCreateIndexTableSqlForSecondaryIndex(indexTableDef, indexTableDef.Name, qry.Database)
 			err = c.runSql(createSQL)
 			if err != nil {
 				return err
 			}
 
-			// load data
+			// load data if required
 			switch indexTableDef.TableType {
-			case catalog.SystemIvfCentroidsRel:
-			case catalog.SystemIvfDataRel:
+			case catalog.SystemSecondaryIndex_IvfCentroidsRel:
+			case catalog.SystemSecondaryIndex_IvfCentroidsMappingRel:
 			}
 
 		}

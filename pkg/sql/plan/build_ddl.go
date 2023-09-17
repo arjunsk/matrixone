@@ -1271,13 +1271,12 @@ func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.In
 				if err != nil {
 					return false, err
 				}
-				indexTableName += "aux1"
 				tableDef1 := &TableDef{
 					Name:      indexTableName,
-					TableType: catalog.SystemIvfCentroidsRel,
+					TableType: catalog.SystemSecondaryIndex_IvfCentroidsRel,
 				}
 
-				// 1.a centroid id column
+				// 1.a centroid id column (primary key)
 				keyName := catalog.IndexTableCentroidColName
 				colDefCentroidId := &ColDef{
 					Name: keyName,
@@ -1327,10 +1326,9 @@ func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.In
 				if err != nil {
 					return false, err
 				}
-				indexTableName2 += "aux2"
 				tableDef2 := &TableDef{
 					Name:      indexTableName2,
-					TableType: catalog.SystemIvfDataRel,
+					TableType: catalog.SystemSecondaryIndex_IvfCentroidsMappingRel,
 				}
 
 				// 2.a centroid id column
@@ -1369,7 +1367,7 @@ func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.In
 			}
 
 		case tree.INDEX_TYPE_INVALID:
-			// this would be our default secondary index (ie when nothing is passed).
+			// this would be our default secondary index (ie when `USING btree/rtree/ivf` etc is not used).
 		default:
 		}
 
