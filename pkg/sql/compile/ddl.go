@@ -960,8 +960,10 @@ func (s *Scope) CreateIndex(c *Compile) error {
 
 		for i, _ := range qry.GetIndex().GetIndexTables() {
 			// generate insert into mo_indexes metadata
+			//TODO: create a new copy
 			indexDef.TableExist = true
 			indexDef.IndexTableName = qry.GetIndex().GetIndexTables()[i].Name
+			indexDef.IndexAlgoLevel = qry.GetIndex().GetIndexTables()[i].AlgoLevel
 			sql, err := makeInsertSingleIndexSQL(c.e, c.proc, databaseId, tableId, indexDef)
 			if err != nil {
 				return err

@@ -1276,7 +1276,8 @@ func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.In
 				}
 				indexTableName += "aux1"
 				tableDef1 := &TableDef{
-					Name: indexTableName,
+					Name:      indexTableName,
+					AlgoLevel: 1,
 				}
 
 				// 1.a centroid id column
@@ -1333,7 +1334,8 @@ func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.In
 				}
 				indexTableName2 += "aux2"
 				tableDef2 := &TableDef{
-					Name: indexTableName2,
+					Name:      indexTableName2,
+					AlgoLevel: 0,
 				}
 
 				// 2.a centroid id column
