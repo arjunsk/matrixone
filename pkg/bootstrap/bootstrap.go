@@ -132,13 +132,13 @@ var (
 		then    []string
 	}{
 		{
-			ifEmpty: fmt.Sprintf(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s;`, catalog.MO_CATALOG, catalog.MO_INDEXES, catalog.IndexAlgoName),
+			ifEmpty: fmt.Sprintf(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = "%s" AND TABLE_NAME = "%s" AND COLUMN_NAME = "%s";`, catalog.MO_CATALOG, catalog.MO_INDEXES, catalog.IndexAlgoName),
 			then: []string{
 				fmt.Sprintf(`alter table %s.%s add column %s varchar(20) after type;`, catalog.MO_CATALOG, catalog.MO_INDEXES, catalog.IndexAlgoName),
 			},
 		},
 		{
-			ifEmpty: fmt.Sprintf(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s;`, catalog.MO_CATALOG, catalog.MO_INDEXES, catalog.IndexAlgoLevel),
+			ifEmpty: fmt.Sprintf(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = "%s" AND TABLE_NAME = "%s" AND COLUMN_NAME = "%s";`, catalog.MO_CATALOG, catalog.MO_INDEXES, catalog.IndexAlgoLevel),
 			then: []string{
 				fmt.Sprintf(`alter table %s.%s add column %s int after %s;`, catalog.MO_CATALOG, catalog.MO_INDEXES, catalog.IndexAlgoName, catalog.IndexAlgoName),
 			},
