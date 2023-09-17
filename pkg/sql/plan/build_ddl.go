@@ -1210,48 +1210,57 @@ func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.In
 	nameCount := make(map[string]int)
 	tableExists = false
 	for _, indexInfo := range indexInfos {
-		// ========= common part =========
 		indexDef := &plan.IndexDef{}
-		indexDef.Unique = false
 
-		indexParts := make([]string, 0)
+		{ // ========= common part =========
 
-		for _, keyPart := range indexInfo.KeyParts {
-			name := keyPart.ColName.Parts[0]
-			if _, ok := colMap[name]; !ok {
-				return false, moerr.NewInvalidInput(ctx.GetContext(), "column '%s' is not exist", name)
-			}
-			if colMap[name].Typ.Id == int32(types.T_blob) {
-				return false, moerr.NewNotSupported(ctx.GetContext(), fmt.Sprintf("BLOB column '%s' cannot be in index", name))
-			}
-			if colMap[name].Typ.Id == int32(types.T_text) {
-				return false, moerr.NewNotSupported(ctx.GetContext(), fmt.Sprintf("TEXT column '%s' cannot be in index", name))
-			}
-			if colMap[name].Typ.Id == int32(types.T_json) {
-				return false, moerr.NewNotSupported(ctx.GetContext(), fmt.Sprintf("JSON column '%s' cannot be in index", name))
-			}
-			indexParts = append(indexParts, name)
-		}
+			indexDef.Unique = false
+			indexParts := make([]string, 0)
 
-		if indexInfo.Name == "" {
-			firstPart := indexInfo.KeyParts[0].ColName.Parts[0]
-			nameCount[firstPart]++
-			count := nameCount[firstPart]
-			indexName := firstPart
-			if count > 1 {
-				indexName = firstPart + "_" + strconv.Itoa(count)
+			for _, keyPart := range indexInfo.KeyParts {
+				name := keyPart.ColName.Parts[0]
+				if _, ok := colMap[name]; !ok {
+					return false, moerr.NewInvalidInput(ctx.GetContext(), "column '%s' is not exist", name)
+				}
+				if colMap[name].Typ.Id == int32(types.T_blob) {
+					return false, moerr.NewNotSupported(ctx.GetContext(), fmt.Sprintf("BLOB column '%s' cannot be in index", name))
+				}
+				if colMap[name].Typ.Id == int32(types.T_text) {
+					return false, moerr.NewNotSupported(ctx.GetContext(), fmt.Sprintf("TEXT column '%s' cannot be in index", name))
+				}
+				if colMap[name].Typ.Id == int32(types.T_json) {
+					return false, moerr.NewNotSupported(ctx.GetContext(), fmt.Sprintf("JSON column '%s' cannot be in index", name))
+				}
+				indexParts = append(indexParts, name)
 			}
-			indexDef.IndexName = indexName
-		} else {
-			indexDef.IndexName = indexInfo.Name
-		}
-		indexDef.IndexTableName = ""
-		indexDef.Parts = indexParts
-		indexDef.TableExist = false
-		if indexInfo.IndexOption != nil {
-			indexDef.Comment = indexInfo.IndexOption.Comment
-		} else {
-			indexDef.Comment = ""
+
+			if indexInfo.Name == "" {
+				firstPart := indexInfo.KeyParts[0].ColName.Parts[0]
+				nameCount[firstPart]++
+				count := nameCount[firstPart]
+				indexName := firstPart
+				if count > 1 {
+					indexName = firstPart + "_" + strconv.Itoa(count)
+				}
+				indexDef.IndexName = indexName
+			} else {
+				indexDef.IndexName = indexInfo.Name
+			}
+			indexDef.IndexTableName = ""
+			indexDef.Parts = indexParts
+			indexDef.TableExist = false
+			if indexInfo.IndexOption != nil {
+				indexDef.Comment = indexInfo.IndexOption.Comment
+			} else {
+				indexDef.Comment = ""
+			}
+			//Note: use `make pb` to build IndexAlgo
+			if indexInfo.KeyType == tree.INDEX_TYPE_INVALID {
+				indexDef.IndexAlgo = ""
+			} else {
+				indexDef.IndexAlgo = indexInfo.KeyType.ToString()
+			}
+
 		}
 
 		// ======== logic for creating auxiliary table =============
@@ -1367,13 +1376,6 @@ func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.In
 		case tree.INDEX_TYPE_INVALID:
 			// this would be our default secondary index (ie when nothing is passed).
 		default:
-		}
-
-		//Note: use `make pb` to build IndexAlgo
-		if indexInfo.KeyType == tree.INDEX_TYPE_INVALID {
-			indexDef.IndexAlgo = ""
-		} else {
-			indexDef.IndexAlgo = indexInfo.KeyType.ToString()
 		}
 
 		createTable.TableDef.Indexes = append(createTable.TableDef.Indexes, indexDef)
