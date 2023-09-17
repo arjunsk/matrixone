@@ -349,25 +349,29 @@ func genInsertMOIndexesSql(eg engine.Engine, proc *process.Process, databaseId s
 					// 5.index_type
 					fmt.Fprintf(buffer, "'%s', ", INDEX_TYPE_PRIMARY)
 
-					// 6. index visible
+					//6. algorithm
+					var algorithm = ""
+					fmt.Fprintf(buffer, "'%s', ", algorithm)
+
+					// 7. index visible
 					fmt.Fprintf(buffer, "%d, ", INDEX_VISIBLE_YES)
 
-					// 7. index vec_hidden
+					// 8. index vec_hidden
 					fmt.Fprintf(buffer, "%d, ", INDEX_HIDDEN_NO)
 
-					// 8. index vec_comment
+					// 9. index vec_comment
 					fmt.Fprintf(buffer, "'%s', ", EMPTY_STRING)
 
-					// 9. index vec_column_name
+					// 10. index vec_column_name
 					fmt.Fprintf(buffer, "'%s', ", colName)
 
-					// 10. index vec_ordinal_position
+					// 11. index vec_ordinal_position
 					fmt.Fprintf(buffer, "%d, ", i+1)
 
-					// 11. index vec_options
+					// 12. index vec_options
 					fmt.Fprintf(buffer, "%s, ", NULL_VALUE)
 
-					// 12. index vec_index_table
+					// 13. index vec_index_table
 					fmt.Fprintf(buffer, "%s)", NULL_VALUE)
 				}
 			}
