@@ -186,7 +186,7 @@ func (b *bootstrapper) Bootstrap(ctx context.Context) error {
 			getLogger().Info("waiting bootstrap completed",
 				zap.Bool("result", ok),
 				zap.Error(err))
-			return err
+			return b.execConditionalUpgrades(ctx)
 		}
 	}
 }
@@ -214,7 +214,10 @@ func (b *bootstrapper) execConditionalUpgrades(ctx context.Context) error {
 
 	for _, conditionalUpgradeSQL := range conditionalUpgradeSQLs {
 		result, err := b.exec.Exec(ctx, conditionalUpgradeSQL.ifSql, executor.Options{})
-		if err != nil || len(result.Batches) == 0 {
+		if err != nil {
+			return err
+		}
+		if len(result.Batches) == 0 {
 			if err = b.exec.ExecTxn(ctx, execFunc(conditionalUpgradeSQL.thenSql), executor.Options{}); err != nil {
 				return err
 			}

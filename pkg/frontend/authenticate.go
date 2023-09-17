@@ -7671,7 +7671,10 @@ func InitGeneralTenant(ctx context.Context, ses *Session, ca *tree.CreateAccount
 
 		for _, conditionalUpgradeSQL := range conditionalUpgradeSQLs {
 			err := bh.Exec(newTenantCtx, conditionalUpgradeSQL.ifSql)
-			if err != nil || len(bh.GetExecResultBatches()) == 0 {
+			if err != nil {
+				return err
+			}
+			if len(bh.GetExecResultBatches()) == 0 {
 				if err = bh.Exec(newTenantCtx, conditionalUpgradeSQL.thenSql); err != nil {
 					return err
 				}
