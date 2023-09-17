@@ -442,7 +442,8 @@ message TableDef {
 	uint64 auto_incr_offset = 30;
 
 	// used by secondary index
-	bool loadData = 31;
+	bool load_data = 31;
+	bool algo_level = 32;
 }
 
 message TableFunction{
