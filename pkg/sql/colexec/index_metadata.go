@@ -37,11 +37,13 @@ const (
 )
 const (
 	// 'mo_indexes' table
-	MO_INDEX_ID               = "id"
-	MO_INDEX_TABLE_ID         = "table_id"
-	MO_INDEX_DATABASE_ID      = "database_id"
-	MO_INDEX_NAME             = "name"
-	MO_INDEX_TYPE             = "type"
+	MO_INDEX_ID          = "id"
+	MO_INDEX_TABLE_ID    = "table_id"
+	MO_INDEX_DATABASE_ID = "database_id"
+	MO_INDEX_NAME        = "name"
+	// This is index catagory, unqiue vs primary vs multiple
+	MO_INDEX_TYPE = "type"
+	// This is INDEX_TYPE in MYSQL: https://dev.mysql.com/doc/mysql-infoschema-excerpt/5.7/en/information-schema-statistics-table.html
 	MO_INDEX_ALGORITHM        = "algorithm"
 	MO_INDEX_IS_VISIBLE       = "is_visible"
 	MO_INDEX_HIDDEN           = "hidden"
