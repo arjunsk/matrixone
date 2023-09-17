@@ -42,8 +42,8 @@ var (
 			database_id bigint unsigned not null,
 			name 		varchar(64) not null,
 			type        varchar(11) not null,
-    		algorithm	varchar(11) not null,
-    		algorithm_level 		int,
+    		algorithm	varchar(11),
+    		algorithm_level varchar(11),
 			is_visible  tinyint not null,
 			hidden      tinyint not null,
 			comment 	varchar(2048) not null,
@@ -138,9 +138,9 @@ var (
 			},
 		},
 		{
-			ifEmpty: fmt.Sprintf(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = "%s" AND TABLE_NAME = "%s" AND COLUMN_NAME = "%s";`, catalog.MO_CATALOG, catalog.MO_INDEXES, catalog.IndexAlgoLevel),
+			ifEmpty: fmt.Sprintf(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = "%s" AND TABLE_NAME = "%s" AND COLUMN_NAME = "%s";`, catalog.MO_CATALOG, catalog.MO_INDEXES, catalog.IndexAlgoTableType),
 			then: []string{
-				fmt.Sprintf(`alter table %s.%s add column %s int after %s;`, catalog.MO_CATALOG, catalog.MO_INDEXES, catalog.IndexAlgoName, catalog.IndexAlgoName),
+				fmt.Sprintf(`alter table %s.%s add column %s varchar(20) after %s;`, catalog.MO_CATALOG, catalog.MO_INDEXES, catalog.IndexAlgoTableType, catalog.IndexAlgoName),
 			},
 		},
 	}
