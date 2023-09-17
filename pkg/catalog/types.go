@@ -141,6 +141,10 @@ const (
 	SystemRelAttr_Version        = "rel_version"
 	SystemRelAttr_CatalogVersion = "catalog_version"
 
+	// 'mo_indexes' table
+	IndexAlgoName  = "algorithm"
+	IndexAlgoLevel = "algorithm_level"
+
 	// 'mo_columns' table
 	SystemColAttr_UniqName        = "att_uniq_name"
 	SystemColAttr_AccID           = "account_id"

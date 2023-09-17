@@ -43,6 +43,7 @@ var (
 			name 		varchar(64) not null,
 			type        varchar(11) not null,
     		algorithm	varchar(11) not null,
+    		algorithm_level 		int,
 			is_visible  tinyint not null,
 			hidden      tinyint not null,
 			comment 	varchar(2048) not null,
@@ -127,13 +128,19 @@ var (
 	}
 
 	conditionalUpgradeSQLs = []struct {
-		ifSql   string
-		thenSql []string
+		ifEmpty string
+		then    []string
 	}{
 		{
-			ifSql: fmt.Sprintf(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s;`, catalog.MO_CATALOG, catalog.MO_INDEXES, "algorithm"),
-			thenSql: []string{
-				fmt.Sprintf(`alter table %s.%s add column algorithm varchar(20) after type;`, catalog.MO_CATALOG, catalog.MO_INDEXES),
+			ifEmpty: fmt.Sprintf(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s;`, catalog.MO_CATALOG, catalog.MO_INDEXES, catalog.IndexAlgoName),
+			then: []string{
+				fmt.Sprintf(`alter table %s.%s add column %s varchar(20) after type;`, catalog.MO_CATALOG, catalog.MO_INDEXES, catalog.IndexAlgoName),
+			},
+		},
+		{
+			ifEmpty: fmt.Sprintf(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s;`, catalog.MO_CATALOG, catalog.MO_INDEXES, catalog.IndexAlgoLevel),
+			then: []string{
+				fmt.Sprintf(`alter table %s.%s add column %s int after %s;`, catalog.MO_CATALOG, catalog.MO_INDEXES, catalog.IndexAlgoName, catalog.IndexAlgoName),
 			},
 		},
 	}
@@ -213,12 +220,12 @@ func (b *bootstrapper) checkAlreadyBootstrapped(ctx context.Context) (bool, erro
 func (b *bootstrapper) execConditionalUpgrades(ctx context.Context) error {
 
 	for _, conditionalUpgradeSQL := range conditionalUpgradeSQLs {
-		result, err := b.exec.Exec(ctx, conditionalUpgradeSQL.ifSql, executor.Options{})
+		result, err := b.exec.Exec(ctx, conditionalUpgradeSQL.ifEmpty, executor.Options{})
 		if err != nil {
 			return err
 		}
 		if len(result.Batches) == 0 {
-			if err = b.exec.ExecTxn(ctx, execFunc(conditionalUpgradeSQL.thenSql), executor.Options{}); err != nil {
+			if err = b.exec.ExecTxn(ctx, execFunc(conditionalUpgradeSQL.then), executor.Options{}); err != nil {
 				return err
 			}
 		}

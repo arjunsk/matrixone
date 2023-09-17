@@ -302,6 +302,7 @@ message IndexDef {
 	bool visible          = 8;
 	IndexOption option		  = 9;
 	string index_algo = 10;
+	int32 index_algo_level = 11;
 }
 
 

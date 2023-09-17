@@ -250,25 +250,29 @@ func genInsertMOIndexesSql(eg engine.Engine, proc *process.Process, databaseId s
 					var algorithm = indexdef.IndexAlgo
 					fmt.Fprintf(buffer, "'%s', ", algorithm)
 
-					// 7. index visible
+					//7. algorithm
+					var algorithm_level = indexdef.IndexAlgoLevel
+					fmt.Fprintf(buffer, "'%d', ", algorithm_level)
+
+					// 8. index visible
 					fmt.Fprintf(buffer, "%d, ", INDEX_VISIBLE_YES)
 
-					// 8. index vec_hidden
+					// 9. index vec_hidden
 					fmt.Fprintf(buffer, "%d, ", INDEX_HIDDEN_NO)
 
-					// 9. index vec_comment
+					// 10. index vec_comment
 					fmt.Fprintf(buffer, "'%s', ", indexdef.Comment)
 
-					// 10. index vec_column_name
+					// 11. index vec_column_name
 					fmt.Fprintf(buffer, "'%s', ", part)
 
-					// 11. index vec_ordinal_position
+					// 12. index vec_ordinal_position
 					fmt.Fprintf(buffer, "%d, ", i+1)
 
-					// 12. index vec_options
+					// 13. index vec_options
 					fmt.Fprintf(buffer, "%s, ", NULL_VALUE)
 
-					// 13. index vec_index_table
+					// 14. index vec_index_table
 					if indexdef.TableExist {
 						fmt.Fprintf(buffer, "'%s')", indexdef.IndexTableName)
 					} else {
@@ -309,25 +313,29 @@ func genInsertMOIndexesSql(eg engine.Engine, proc *process.Process, databaseId s
 					var algorithm = ""
 					fmt.Fprintf(buffer, "'%s', ", algorithm)
 
-					// 7. index visible
+					//7. algorithm
+					var algorithm_level = 0
+					fmt.Fprintf(buffer, "'%d', ", algorithm_level)
+
+					// 8. index visible
 					fmt.Fprintf(buffer, "%d, ", INDEX_VISIBLE_YES)
 
-					// 8. index vec_hidden
+					// 9. index vec_hidden
 					fmt.Fprintf(buffer, "%d, ", INDEX_HIDDEN_NO)
 
-					// 9. index vec_comment
+					// 10. index vec_comment
 					fmt.Fprintf(buffer, "'%s', ", EMPTY_STRING)
 
-					// 10. index vec_column_name
+					// 11. index vec_column_name
 					fmt.Fprintf(buffer, "'%s', ", colName)
 
-					// 11. index vec_ordinal_position
+					// 12. index vec_ordinal_position
 					fmt.Fprintf(buffer, "%d, ", i+1)
 
-					// 12. index vec_options
+					// 13. index vec_options
 					fmt.Fprintf(buffer, "%s, ", NULL_VALUE)
 
-					// 13. index vec_index_table
+					// 14. index vec_index_table
 					fmt.Fprintf(buffer, "%s)", NULL_VALUE)
 				}
 			}
