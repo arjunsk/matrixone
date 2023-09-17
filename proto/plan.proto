@@ -443,7 +443,7 @@ message TableDef {
 
 	// used by secondary index
 	bool load_data = 31;
-	bool algo_level = 32;
+	int32 algo_level = 32;
 }
 
 message TableFunction{

@@ -906,9 +906,9 @@ func (s *Scope) CreateIndex(c *Compile) error {
 				//TODO: how to distinguish between two tables
 				switch indexDef.IndexAlgo {
 				case tree.INDEX_TYPE_IVFFLAT.ToString():
-					if indexTableDef.TableType == catalog.SystemIvfCentroidsRel {
+					if indexTableDef.AlgoLevel == 0 {
 
-					} else if indexTableDef.TableType == catalog.SystemIvfDataRel {
+					} else if indexTableDef.AlgoLevel == 1 {
 
 					}
 				}
