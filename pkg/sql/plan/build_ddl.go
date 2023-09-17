@@ -1197,9 +1197,6 @@ func buildUniqueIndexTable(createTable *plan.CreateTable, indexInfos []*tree.Uni
 			indexDef.Comment = ""
 		}
 
-		// update loadData information here
-		tableDef.LoadData = true
-
 		createTable.IndexTables = append(createTable.IndexTables, tableDef)
 		createTable.TableDef.Indexes = append(createTable.TableDef.Indexes, indexDef)
 	}
@@ -1277,7 +1274,7 @@ func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.In
 				indexTableName += "aux1"
 				tableDef1 := &TableDef{
 					Name:      indexTableName,
-					AlgoLevel: 1,
+					TableType: catalog.SystemIvfCentroidsRel,
 				}
 
 				// 1.a centroid id column
@@ -1321,8 +1318,6 @@ func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.In
 				tableDef1.Cols = append(tableDef1.Cols, colDefCentroids)
 
 				// 1.c append the tableDef
-				tableDef1.TableType = catalog.SystemIvfCentroidsRel
-				tableDef1.LoadData = false
 				createTable.IndexTables = append(createTable.IndexTables, tableDef1)
 			}
 
@@ -1335,7 +1330,7 @@ func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.In
 				indexTableName2 += "aux2"
 				tableDef2 := &TableDef{
 					Name:      indexTableName2,
-					AlgoLevel: 0,
+					TableType: catalog.SystemIvfDataRel,
 				}
 
 				// 2.a centroid id column
@@ -1370,8 +1365,6 @@ func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.In
 				tableDef2.Cols = append(tableDef2.Cols, colDefPk)
 
 				// 2.c append the tableDef
-				tableDef2.TableType = catalog.SystemIvfDataRel
-				tableDef2.LoadData = false
 				createTable.IndexTables = append(createTable.IndexTables, tableDef2)
 			}
 

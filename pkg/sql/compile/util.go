@@ -251,8 +251,8 @@ func genInsertMOIndexesSql(eg engine.Engine, proc *process.Process, databaseId s
 					fmt.Fprintf(buffer, "'%s', ", algorithm)
 
 					//7. algorithm_level
-					var algorithm_level = indexdef.IndexAlgoLevel
-					fmt.Fprintf(buffer, "'%d', ", algorithm_level)
+					var algorithm_table_type = indexdef.IndexAlgoTableType
+					fmt.Fprintf(buffer, "'%s', ", algorithm_table_type)
 
 					// 8. index visible
 					fmt.Fprintf(buffer, "%d, ", INDEX_VISIBLE_YES)
@@ -314,8 +314,8 @@ func genInsertMOIndexesSql(eg engine.Engine, proc *process.Process, databaseId s
 					fmt.Fprintf(buffer, "'%s', ", algorithm)
 
 					//7. algorithm_level
-					var algorithm_level = 0
-					fmt.Fprintf(buffer, "'%d', ", algorithm_level)
+					var algorithm_table_type = ""
+					fmt.Fprintf(buffer, "'%s', ", algorithm_table_type)
 
 					// 8. index visible
 					fmt.Fprintf(buffer, "%d, ", INDEX_VISIBLE_YES)

@@ -902,17 +902,10 @@ func (s *Scope) CreateIndex(c *Compile) error {
 				return err
 			}
 
-			if !indexDef.Unique && indexTableDef.LoadData {
-				//TODO: how to distinguish between two tables
-				switch indexDef.IndexAlgo {
-				case tree.INDEX_TYPE_IVFFLAT.ToString():
-					if indexTableDef.AlgoLevel == 0 {
-
-					} else if indexTableDef.AlgoLevel == 1 {
-
-					}
-				}
-
+			// load data
+			switch indexTableDef.TableType {
+			case catalog.SystemIvfCentroidsRel:
+			case catalog.SystemIvfDataRel:
 			}
 
 		}
@@ -963,7 +956,7 @@ func (s *Scope) CreateIndex(c *Compile) error {
 			//TODO: create a new copy
 			indexDef.TableExist = true
 			indexDef.IndexTableName = qry.GetIndex().GetIndexTables()[i].Name
-			indexDef.IndexAlgoLevel = qry.GetIndex().GetIndexTables()[i].AlgoLevel
+			indexDef.IndexAlgoTableType = qry.GetIndex().GetIndexTables()[i].TableType
 			sql, err := makeInsertSingleIndexSQL(c.e, c.proc, databaseId, tableId, indexDef)
 			if err != nil {
 				return err

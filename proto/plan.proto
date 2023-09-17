@@ -302,7 +302,7 @@ message IndexDef {
 	bool visible          = 8;
 	IndexOption option		  = 9;
 	string index_algo = 10;
-	int32 index_algo_level = 11;
+	string index_algo_table_type = 11;
 }
 
 
@@ -440,10 +440,6 @@ message TableDef {
 	bool is_temporary = 29;
 
 	uint64 auto_incr_offset = 30;
-
-	// used by secondary index
-	bool load_data = 31;
-	int32 algo_level = 32;
 }
 
 message TableFunction{

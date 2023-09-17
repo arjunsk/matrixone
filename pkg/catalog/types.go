@@ -207,8 +207,8 @@ const (
 		the table partitioned has multiple partition tables
 	*/
 	SystemPartitionRel    = "partition"
-	SystemIvfCentroidsRel = "centroids"
-	SystemIvfDataRel      = "data"
+	SystemIvfCentroidsRel = "ivf_level1"
+	SystemIvfDataRel      = "ivf_level0"
 
 	SystemColPKConstraint = "p"
 	SystemColNoConstraint = "n"
