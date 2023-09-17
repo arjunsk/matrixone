@@ -250,7 +250,7 @@ func genInsertMOIndexesSql(eg engine.Engine, proc *process.Process, databaseId s
 					var algorithm = indexdef.IndexAlgo
 					fmt.Fprintf(buffer, "'%s', ", algorithm)
 
-					//7. algorithm_level
+					//7. algorithm_table_type
 					var algorithm_table_type = indexdef.IndexAlgoTableType
 					fmt.Fprintf(buffer, "'%s', ", algorithm_table_type)
 
@@ -313,7 +313,7 @@ func genInsertMOIndexesSql(eg engine.Engine, proc *process.Process, databaseId s
 					var algorithm = ""
 					fmt.Fprintf(buffer, "'%s', ", algorithm)
 
-					//7. algorithm_level
+					//7. algorithm_table_type
 					var algorithm_table_type = ""
 					fmt.Fprintf(buffer, "'%s', ", algorithm_table_type)
 

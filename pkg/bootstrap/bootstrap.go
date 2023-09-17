@@ -43,7 +43,7 @@ var (
 			name 		varchar(64) not null,
 			type        varchar(11) not null,
     		algorithm	varchar(11),
-    		algorithm_level varchar(11),
+    		algorithm_table_type varchar(11),
 			is_visible  tinyint not null,
 			hidden      tinyint not null,
 			comment 	varchar(2048) not null,
