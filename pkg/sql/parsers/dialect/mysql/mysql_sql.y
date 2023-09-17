@@ -7076,11 +7076,11 @@ index_def:
             t := strings.ToLower($3[1])
             switch t {
             case "btree":
-            	keyType = tree.INDEX_TYPE_BTREE
+            	keyTyp = tree.INDEX_TYPE_BTREE
             case "hash":
-            	keyType = tree.INDEX_TYPE_HASH
+            	keyTyp = tree.INDEX_TYPE_HASH
 	   case "rtree":
-	   	keyType = tree.INDEX_TYPE_RTREE
+	   	keyTyp = tree.INDEX_TYPE_RTREE
             case "zonemap":
                 keyTyp = tree.INDEX_TYPE_ZONEMAP
             case "bsi":
