@@ -7651,7 +7651,42 @@ func InitGeneralTenant(ctx context.Context, ses *Session, ca *tree.CreateAccount
 			if !ca.IfNotExists { //do nothing
 				return moerr.NewInternalError(ctx, "the tenant %s exists", ca.Name)
 			}
-			return err
+
+			{ // when the database is already initialized
+				//TODO: verify
+				executeConditionalUpgrades := func() error {
+
+					conditionalUpgradeSQLs := []struct {
+						ifEmpty string
+						then    string
+					}{
+						{
+							ifEmpty: fmt.Sprintf(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = "%s" AND TABLE_NAME = "%s" AND COLUMN_NAME = "%s";`, catalog.MO_CATALOG, catalog.MO_INDEXES, catalog.IndexAlgoName),
+							then:    fmt.Sprintf(`alter table %s.%s add column %s varchar(64) after type;`, catalog.MO_CATALOG, catalog.MO_INDEXES, catalog.IndexAlgoName),
+						},
+						{
+							ifEmpty: fmt.Sprintf(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = "%s" AND TABLE_NAME = "%s" AND COLUMN_NAME = "%s";`, catalog.MO_CATALOG, catalog.MO_INDEXES, catalog.IndexAlgoTableType),
+							then:    fmt.Sprintf(`alter table %s.%s add column %s varchar(64) after %s;`, catalog.MO_CATALOG, catalog.MO_INDEXES, catalog.IndexAlgoTableType, catalog.IndexAlgoName),
+						},
+					}
+
+					for _, conditionalUpgradeSQL := range conditionalUpgradeSQLs {
+						err := bh.Exec(newTenantCtx, conditionalUpgradeSQL.ifEmpty)
+						if err != nil {
+							return err
+						}
+						if len(bh.GetExecResultBatches()) == 0 {
+							if err = bh.Exec(newTenantCtx, conditionalUpgradeSQL.then); err != nil {
+								return err
+							}
+						}
+					}
+					return nil
+				}
+
+				return executeConditionalUpgrades()
+			}
+
 		} else {
 			newTenant, newTenantCtx, err = createTablesInMoCatalogOfGeneralTenant(ctx, bh, ca)
 			if err != nil {
