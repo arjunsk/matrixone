@@ -545,6 +545,17 @@ func buildAlterTable(stmt *tree.AlterTable, ctx CompilerContext) (*Plan, error) 
 		if _, ok := stmt.Options[0].(*tree.AlterOptionReindex); ok {
 			return buildAlterTableReindex(stmt, ctx)
 		}
+	} else {
+		//handle conditions where we get more than one AlterOptionReindex
+		alterReindexCount := 0
+		for _, opt := range stmt.Options {
+			if _, ok := opt.(*tree.AlterOptionReindex); ok {
+				alterReindexCount++
+			}
+			if alterReindexCount > 1 {
+				return nil, moerr.NewInternalErrorNoCtx("don't support more than one alter reindex")
+			}
+		}
 	}
 
 	algorithm := ResolveAlterTableAlgorithm(ctx.GetContext(), stmt.Options)
