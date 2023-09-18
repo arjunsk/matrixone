@@ -142,7 +142,7 @@ func (s *Scope) AlterTable(c *Compile) error {
 		return s.AlterTableCopy(c)
 	} else if qry.AlgorithmType == plan.AlterTable_INPLACE {
 		return s.AlterTableInplace(c)
-	} else if qry.AlgorithmType == plan.AlterTable_DEFAULT {
+	} else if qry.AlgorithmType == plan.AlterTable_REINDEX {
 		return s.AlterTableReIndex(c)
 	}
 
