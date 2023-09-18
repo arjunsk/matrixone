@@ -180,8 +180,8 @@ func InsertOneIndexMetadata(eg engine.Engine, ctx context.Context, db engine.Dat
 
 func buildInsertIndexMetaBatch(tableId uint64, databaseId uint64, ct *engine.ConstraintDef, eg engine.Engine, proc *process.Process) (*batch.Batch, error) {
 	bat := &batch.Batch{
-		Attrs: make([]string, 13),
-		Vecs:  make([]*vector.Vector, 13),
+		Attrs: make([]string, 15),
+		Vecs:  make([]*vector.Vector, 15),
 		Cnt:   1,
 	}
 	bat.Attrs[0] = MO_INDEX_ID
