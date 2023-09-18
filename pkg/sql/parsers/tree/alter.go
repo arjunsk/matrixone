@@ -241,11 +241,13 @@ func (node *AlterOptionAlterCheck) Format(ctx *FmtCtx) {
 type AlterOptionReindex struct {
 	alterOptionImpl
 	ColumnName *UnresolvedName
+	KeyType    IndexType
 }
 
 func (node *AlterOptionReindex) Format(ctx *FmtCtx) {
 	ctx.WriteString("reindex ")
-	ctx.WriteString("column ")
+	ctx.WriteString(node.KeyType.ToString())
+	ctx.WriteString(" column ")
 	node.ColumnName.Format(ctx)
 }
 

@@ -2670,10 +2670,33 @@ alter_option:
         }
         $$ = tree.AlterTableOption(opt)
     }
-|   REINDEX column_keyword_opt column_name
+|   REINDEX index_type column_keyword_opt column_name
         {
+           keyTyp := tree.INDEX_TYPE_INVALID
+	   if $2 != "" {
+		t := strings.ToLower($2)
+		switch t {
+		    case "btree":
+			keyTyp = tree.INDEX_TYPE_BTREE
+		    case "hash":
+			keyTyp = tree.INDEX_TYPE_HASH
+		   case "rtree":
+			keyTyp = tree.INDEX_TYPE_RTREE
+		    case "zonemap":
+			keyTyp = tree.INDEX_TYPE_ZONEMAP
+		    case "bsi":
+			keyTyp = tree.INDEX_TYPE_BSI
+		    case "ivfflat":
+			keyTyp = tree.INDEX_TYPE_IVFFLAT
+		    default:
+			yylex.Error("Invail the type of index")
+			return 1
+		}
+	   }
+
             opt := &tree.AlterOptionReindex{
-                ColumnName:  $3,
+                ColumnName:  $4,
+                KeyType: keyTyp,
             }
             $$ = tree.AlterTableOption(opt)
         }
@@ -7118,15 +7141,23 @@ index_def:
     {
         keyTyp := tree.INDEX_TYPE_INVALID
         if $3[1] != "" {
-               t := strings.ToLower($3[1])
+            t := strings.ToLower($3[1])
             switch t {
-            case "zonemap":
-                keyTyp = tree.INDEX_TYPE_ZONEMAP
-            case "bsi":
-                keyTyp = tree.INDEX_TYPE_BSI
-            default:
-                yylex.Error("Invail the type of index")
-                return 1
+             case "btree":
+		keyTyp = tree.INDEX_TYPE_BTREE
+	     case "hash":
+		keyTyp = tree.INDEX_TYPE_HASH
+	     case "rtree":
+		keyTyp = tree.INDEX_TYPE_RTREE
+	     case "zonemap":
+		keyTyp = tree.INDEX_TYPE_ZONEMAP
+	     case "bsi":
+		keyTyp = tree.INDEX_TYPE_BSI
+	     case "ivfflat":
+		keyTyp = tree.INDEX_TYPE_IVFFLAT
+	     default:
+		yylex.Error("Invail the type of index")
+		return 1
             }
         }
         $$ = &tree.Index{
