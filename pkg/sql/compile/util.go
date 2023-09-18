@@ -79,7 +79,7 @@ var (
 var (
 	//TODO: handle null scenario
 	selectVectorColumnFormat   = `select %s from %s.%s;`
-	insertCentroidsToAuxTable1 = `insert into %s.%s (%s) values(decode(%s,"hex"))`
+	insertCentroidsToAuxTable1 = `insert into %s.%s (%s) values(%s)`
 	insertCentroidsToAuxTable2 = `insert into  %s.%s
 								  SELECT 
 									(

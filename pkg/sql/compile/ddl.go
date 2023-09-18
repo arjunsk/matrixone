@@ -178,26 +178,27 @@ func getAddColPos(cols []*plan.ColDef, def *plan.ColDef, colName string, pos int
 
 func (s *Scope) AlterTableReIndex(c *Compile) (err error) {
 	qry := s.Plan.GetDdl().GetAlterTable()
+
+	// 1. db & table name
 	dbName := qry.Database
 	if dbName == "" {
 		dbName = c.db
 	}
-
-	tblName := qry.GetTableDef().GetName()
+	orgTableName := qry.GetTableDef().GetName()
 
 	for _, action := range qry.Actions {
 		switch act := action.Action.(type) {
-		case *plan.AlterTable_Action_ReindexCol:
-			switch action.GetReindexCol().IndexAlgo {
-			case tree.INDEX_TYPE_IVFFLAT.ToString():
-				alterTableReindex := act.ReindexCol
-				primaryKey := alterTableReindex.OriginTablePrimaryKeyName
-				secondaryKey := alterTableReindex.OriginTableSecondaryKeyName
+		case *plan.AlterTable_Action_ReindexBuildCol:
+			{
 
-				switch types.T(alterTableReindex.OriginTableSecondaryKeyType.Id) {
+				alterTableReindexBuild := act.ReindexBuildCol
+				originTableIndexColName := alterTableReindexBuild.OriginTableIndexColName
+				indexTableName := alterTableReindexBuild.IndexTableName
+
+				switch types.T(alterTableReindexBuild.OriginTableIndexColType.Id) {
 				case types.T_array_float32:
 					//  1. Fetch the data
-					f32vectors, err := genFetchVectorColumnValues[float32](c, dbName, tblName, secondaryKey)
+					f32vectors, err := genFetchVectorColumnValues[float32](c, dbName, orgTableName, originTableIndexColName)
 					if err != nil {
 						return err
 					}
@@ -212,27 +213,30 @@ func (s *Scope) AlterTableReIndex(c *Compile) (err error) {
 					// 3. feed this to the 1st auxiliary table
 					for _, cluster := range clusters {
 						vecStr := types.ArrayToString[float32](cluster)
-						err := genInsertCentroidsToAuxTable1(c, dbName, tblName, secondaryKey, vecStr)
+						err := genInsertCentroidsToAuxTable1(c, dbName, indexTableName, catalog.IndexTableIndexColName, vecStr)
 						if err != nil {
 							return err
 						}
 					}
 
-					//4. feed data to 2nd auxiliary table
-					aux1Name := alterTableReindex.IndexTableName + "centroids"
-					aux2Name := alterTableReindex.IndexTableName + "data"
-					err = genInsertCentroidsToAuxTable2(c, dbName, tblName, aux1Name, aux2Name, secondaryKey, primaryKey)
-					if err != nil {
-						return err
-					}
-
 				case types.T_array_float64:
 					return moerr.NewInternalErrorNoCtx("not yet supported for vecf64")
 				}
-			default:
-				return moerr.NewInternalErrorNoCtx("only ivf index supports reindexing")
 			}
-
+		case *plan.AlterTable_Action_ReindexRemapCol:
+			{
+				//alterTableReindexRemap := act.ReindexRemapCol
+				//
+				////1. feed data to 2nd auxiliary table
+				//aux1Name := alterTableReindexRemap.IndexSourceTableName
+				//aux2Name := alterTableReindexRemap.IndexDestTable2Name
+				//err = genInsertCentroidsToAuxTable2(c, dbName, orgTableName, aux1Name, aux2Name, secondaryKey, primaryKey)
+				//if err != nil {
+				//	return err
+				//}
+			}
+		default:
+			return moerr.NewInternalErrorNoCtx("unsupported action type")
 		}
 	}
 

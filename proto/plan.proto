@@ -1106,14 +1106,24 @@ message AlterAddCol {
 	int32 pos = 4;
 }
 
-message AlterReindexCol {
+message AlterReindexBuildCol {
+	string db_name = 1;//0k
+	string table_name = 2; //ok
+	string origin_table_index_col_name = 3; //ok
+	Type 	 origin_table_index_col_type = 4; //ok
+	string index_table_name = 5;//ok
+	string index_algo = 6; //ok
+}
+
+message AlterReindexRemapCol {
 	string db_name = 1;
 	string table_name = 2;
 	string origin_table_primary_key_name = 3;
 	string origin_table_secondary_key_name = 4;
 	Type 	 origin_table_secondary_key_type = 5;
-	string index_table_name = 6;
-	string index_algo = 7;
+	string index_source_table_name = 6;
+	string index_dest_table_name = 7;
+	string index_algo = 8; //ok
 }
 
 message AlterDropCol {
@@ -1127,6 +1137,7 @@ message AlterTable {
 		COPY  = 1;
 		INSTANT  = 2;
 		INPLACE  = 3;
+		REINDEX = 4;
 	}
 	message Action {
 		oneof action {
@@ -1138,7 +1149,8 @@ message AlterTable {
 			AlterTableName alter_name = 6;
 			AlterAddCol add_col = 7;
 			AlterDropCol drop_col = 8;
-			AlterReindexCol reindex_col = 9;
+			AlterReindexBuildCol reindex_build_col = 9;
+			AlterReindexRemapCol reindex_remap_col = 10;
 		};
 	}
 	string database			      = 1;
