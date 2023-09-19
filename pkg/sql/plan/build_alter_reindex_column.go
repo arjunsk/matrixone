@@ -65,7 +65,7 @@ func buildAlterTableReindex(stmt *tree.AlterTable, ctx CompilerContext) (*Plan, 
 			found := false
 			var indexTableName string
 			for _, indexdef := range tableDef.Indexes {
-				if len(indexdef.Parts[0]) == 1 &&
+				if len(indexdef.Parts) == 1 &&
 					indexdef.Parts[0] == reIndexColName &&
 					indexdef.IndexAlgo == tree.INDEX_TYPE_IVFFLAT.ToString() &&
 					indexdef.IndexAlgoTableType == catalog.SystemSecondaryIndex_IvfCentroidsRel {
@@ -99,7 +99,7 @@ func buildAlterTableReindex(stmt *tree.AlterTable, ctx CompilerContext) (*Plan, 
 			found := false
 			var sourceIndexTableName string
 			for _, indexdef := range tableDef.Indexes {
-				if len(indexdef.Parts[0]) == 1 &&
+				if len(indexdef.Parts) == 1 &&
 					indexdef.Parts[0] == reIndexColName &&
 					indexdef.IndexAlgo == tree.INDEX_TYPE_IVFFLAT.ToString() &&
 					indexdef.IndexAlgoTableType == catalog.SystemSecondaryIndex_IvfCentroidsRel {
@@ -116,7 +116,7 @@ func buildAlterTableReindex(stmt *tree.AlterTable, ctx CompilerContext) (*Plan, 
 			found = false
 			var destIndexTableName string
 			for _, indexdef := range tableDef.Indexes {
-				if len(indexdef.Parts[0]) == 1 &&
+				if len(indexdef.Parts) == 1 &&
 					indexdef.Parts[0] == reIndexColName &&
 					indexdef.IndexAlgo == tree.INDEX_TYPE_IVFFLAT.ToString() &&
 					indexdef.IndexAlgoTableType == catalog.SystemSecondaryIndex_IvfCentroidsMappingRel {
