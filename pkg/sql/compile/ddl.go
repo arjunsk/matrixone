@@ -871,7 +871,8 @@ func (s *Scope) CreateIndex(c *Compile) error {
 
 	originTableDef := plan2.DeepCopyTableDef(qry.TableDef)
 	// indexDef is either UniqueIndex or SecondaryIndex
-	indexDef := qry.GetIndex().GetTableDef().Indexes[0]
+	newTableWithIndexDef := qry.GetIndex()
+	indexDef := newTableWithIndexDef.GetTableDef().Indexes[0]
 
 	if indexDef.Unique {
 		// 0. check original data is not duplicated
@@ -882,7 +883,7 @@ func (s *Scope) CreateIndex(c *Compile) error {
 
 		if qry.TableExist {
 			// create tables defined by plan
-			indexTableDef := qry.GetIndex().GetIndexTables()[0]
+			indexTableDef := newTableWithIndexDef.GetIndexTables()[0]
 			createSQL := genCreateIndexTableSqlUniqueIndex(indexTableDef, indexDef, qry.Database)
 			err = c.runSql(createSQL)
 			if err != nil {
@@ -901,9 +902,9 @@ func (s *Scope) CreateIndex(c *Compile) error {
 	// build and create index table for unique index
 	if !indexDef.Unique && qry.TableExist {
 
-		for i, _ := range qry.GetIndex().GetIndexTables() {
+		for i, _ := range newTableWithIndexDef.GetIndexTables() {
 			// create tables defined by plan
-			indexTableDef := qry.GetIndex().GetIndexTables()[i]
+			indexTableDef := newTableWithIndexDef.GetIndexTables()[i]
 			createSQL := genCreateIndexTableSqlForSecondaryIndex(indexTableDef, indexTableDef.Name, qry.Database)
 			err = c.runSql(createSQL)
 			if err != nil {
@@ -920,7 +921,7 @@ func (s *Scope) CreateIndex(c *Compile) error {
 	}
 
 	// build and update constraint def
-	defs, err := planDefsToExeDefs(qry.GetIndex().GetTableDef())
+	defs, err := planDefsToExeDefs(newTableWithIndexDef.GetTableDef())
 	if err != nil {
 		return err
 	}
@@ -946,8 +947,8 @@ func (s *Scope) CreateIndex(c *Compile) error {
 		return err
 	}
 
+	// generate insert into mo_indexes metadata
 	if indexDef.Unique {
-		// generate insert into mo_indexes metadata
 		sql, err := makeInsertSingleIndexSQL(c.e, c.proc, databaseId, tableId, indexDef)
 		if err != nil {
 			return err
@@ -959,12 +960,12 @@ func (s *Scope) CreateIndex(c *Compile) error {
 		return nil
 	} else {
 
-		for i, _ := range qry.GetIndex().GetIndexTables() {
+		for i, _ := range newTableWithIndexDef.GetIndexTables() {
 			// generate insert into mo_indexes metadata
 			//TODO: create a new copy
 			indexDef.TableExist = true
-			indexDef.IndexTableName = qry.GetIndex().GetIndexTables()[i].Name
-			indexDef.IndexAlgoTableType = qry.GetIndex().GetIndexTables()[i].TableType
+			indexDef.IndexTableName = newTableWithIndexDef.GetIndexTables()[i].Name
+			indexDef.IndexAlgoTableType = newTableWithIndexDef.GetIndexTables()[i].TableType
 			sql, err := makeInsertSingleIndexSQL(c.e, c.proc, databaseId, tableId, indexDef)
 			if err != nil {
 				return err
@@ -1514,6 +1515,7 @@ func planDefsToExeDefs(tableDef *plan.TableDef) ([]engine.TableDef, error) {
 			})
 			c.Cts = append(c.Cts, &engine.StreamConfigsDef{
 				Configs: defVal.Properties.GetProperties(),
+				//TODO: understand this.
 			})
 		}
 	}
