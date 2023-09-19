@@ -205,7 +205,7 @@ func (s *Scope) AlterTableReIndex(c *Compile) (err error) {
 
 					// 2. generate centroids
 					var clustering = ivf.NewFaissClustering()
-					clusters, err := clustering.ComputeClusters(10, f32vectors)
+					clusters, err := clustering.ComputeClusters(3, f32vectors)
 					if err != nil {
 						return err
 					}
@@ -905,7 +905,7 @@ func (s *Scope) CreateIndex(c *Compile) error {
 		for i, _ := range newTableWithIndexDef.GetIndexTables() {
 			// create tables defined by plan
 			indexTableDef := newTableWithIndexDef.GetIndexTables()[i]
-			createSQL := genCreateIndexTableSqlForSecondaryIndex(indexTableDef, indexTableDef.Name, qry.Database)
+			createSQL := genCreateTableWithAutoIncrPK(indexTableDef, indexTableDef.Name, qry.Database)
 			err = c.runSql(createSQL)
 			if err != nil {
 				return err

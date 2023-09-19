@@ -47,6 +47,8 @@ func buildAlterTableReindex(stmt *tree.AlterTable, ctx CompilerContext) (*Plan, 
 	// 3. alterTable init
 	alterTableReIndex := &plan.AlterTable{
 		AlgorithmType: plan.AlterTable_REINDEX,
+		Database:      databaseName,
+		TableDef:      tableDef,
 	}
 
 	// 4. reindex params
@@ -129,7 +131,7 @@ func buildAlterTableReindex(stmt *tree.AlterTable, ctx CompilerContext) (*Plan, 
 				return nil, moerr.NewInternalErrorNoCtx("aux2 table not found")
 			}
 
-			alterTableReIndex.Actions[0] = &plan.AlterTable_Action{
+			alterTableReIndex.Actions[1] = &plan.AlterTable_Action{
 				Action: &plan.AlterTable_Action_ReindexRemapCol{
 					ReindexRemapCol: &plan.AlterReindexRemapCol{
 						DbName:               databaseName,

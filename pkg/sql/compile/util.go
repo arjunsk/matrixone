@@ -78,8 +78,9 @@ var (
 
 var (
 	//TODO: handle null scenario
-	selectVectorColumnFormat   = `select %s from %s.%s;`
-	insertCentroidsToAuxTable1 = `insert into %s.%s (%s) values(%s)`
+	selectVectorColumnFormat   = "select %s from %s.`%s`;"
+	insertCentroidsToAuxTable1 = "insert into %s.`%s` (%s) values(%s)"
+	//TODO: fix the `%s` issue for multi line string
 	insertCentroidsToAuxTable2 = `insert into  %s.%s
 								  SELECT 
 									(
@@ -126,7 +127,7 @@ func genCreateIndexTableSqlUniqueIndex(indexTableDef *plan.TableDef, indexDef *p
 	return fmt.Sprintf(createIndexTableForamt, DBName, indexDef.IndexTableName, sql)
 }
 
-func genCreateIndexTableSqlForSecondaryIndex(indexTableDef *plan.TableDef, tableName string, DBName string) string {
+func genCreateTableWithAutoIncrPK(indexTableDef *plan.TableDef, tableName string, DBName string) string {
 	var sql string
 	planCols := indexTableDef.GetCols()
 	for i, planCol := range planCols {
@@ -156,7 +157,8 @@ func genCreateIndexTableSqlForSecondaryIndex(indexTableDef *plan.TableDef, table
 			sql += typeId.String()
 		}
 		if planCol.Primary {
-			sql += " primary key"
+			//TODO: need to fix this.
+			sql += " AUTO_INCREMENT PRIMARY KEY "
 		}
 		//TODO: can be merged to genCreateIndexTableSqlUniqueIndex later on.
 	}
@@ -474,7 +476,7 @@ func genFetchVectorColumnValues[T types.RealNumbers](c *Compile, database, table
 }
 
 func genInsertCentroidsToAuxTable1(c *Compile, database, table, col, value string) (err error) {
-	sql := fmt.Sprintf(insertCentroidsToAuxTable1, database, table, col, value)
+	sql := fmt.Sprintf(insertCentroidsToAuxTable1, database, table, col, fmt.Sprintf(`"%s"`, value))
 	err = c.runSql(sql)
 	if err != nil {
 		return err
