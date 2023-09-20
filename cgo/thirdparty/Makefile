@@ -15,4 +15,4 @@ faiss:
 		cmake -B build -DFAISS_ENABLE_GPU=OFF -DFAISS_ENABLE_C_API=ON -DBUILD_SHARED_LIBS=ON -DFAISS_ENABLE_PYTHON=OFF . && \
 		make -C build && \
 		sudo make -C build install && \
-		sudo cp build/c_api/libfaiss_c.dylib  /usr/local/lib
+		sudo cp build/c_api/libfaiss_c.dylib /usr/local/lib/libfaiss_c.dylib
