@@ -103,9 +103,13 @@ GOLDFLAGS=-ldflags="-X '$(GO_MODULE)/pkg/version.GoVersion=$(GO_VERSION)' -X '$(
 cgo:
 	@(cd cgo; ${MAKE} ${CGO_DEBUG_OPT})
 
+.PHONY: faiss
+faiss:
+	@(cd cgo/thirdparty; ${MAKE} ${CGO_DEBUG_OPT})
+
 # build mo-service binary
 .PHONY: build
-build: config cgo
+build: config cgo faiss
 	$(info [Build binary])
 	$(CGO_OPTS) go build  $(RACE_OPT) $(GOLDFLAGS) -o $(BIN_NAME) ./cmd/mo-service
 
