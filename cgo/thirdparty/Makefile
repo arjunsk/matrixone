@@ -8,7 +8,7 @@ faiss:
 	if [ -e faiss ]; then \
 		cd faiss && ${GIT_COMMAND} fetch origin && git reset --hard  $(FAISS_COMMIT); \
 	else \
-		${GIT_COMMAND} clone https://github.com/facebook/faiss.git && cd faiss && git reset --hard  $(FAISS_COMMIT); \
+		${GIT_COMMAND} clone https://github.com/facebookresearch/faiss.git && cd faiss && git reset --hard  $(FAISS_COMMIT); \
 	fi
 	cd faiss && \
 		export CMAKE_PREFIX_PATH=/opt/homebrew/opt/openblas:/opt/homebrew/opt/libomp:/opt/homebrew && \
