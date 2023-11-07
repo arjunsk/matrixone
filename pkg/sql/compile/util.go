@@ -65,7 +65,7 @@ var (
 	insertIntoSecondaryIndexTableWithPKeyFormat = "insert into  %s.`%s` select serial_full(%s), %s from %s.%s;"
 	insertIntoSingleIndexTableWithoutPKeyFormat = "insert into  %s.`%s` select (%s) from %s.%s where (%s) is not null;"
 	insertIntoIndexTableWithoutPKeyFormat       = "insert into  %s.`%s` select serial(%s) from %s.%s where serial(%s) is not null;"
-	createIndexTableForamt                      = "create table %s.`%s` (%s);"
+	createIndexTableFormat                      = "create table %s.`%s` (%s)%s;"
 )
 
 var (
@@ -83,7 +83,7 @@ var (
 )
 
 // genCreateIndexTableSql: Generate ddl statements for creating index table
-func genCreateIndexTableSql(indexTableDef *plan.TableDef, indexDef *plan.IndexDef, DBName string) string {
+func genCreateIndexTableSql(indexTableDef *plan.TableDef, indexDef *plan.IndexDef, DBName string, isUK bool) string {
 	var sql string
 	planCols := indexTableDef.GetCols()
 	for i, planCol := range planCols {
@@ -108,11 +108,17 @@ func genCreateIndexTableSql(indexTableDef *plan.TableDef, indexDef *plan.IndexDe
 		default:
 			sql += typeId.String()
 		}
-		if i == 0 {
+		if i == 0 && isUK {
 			sql += " primary key"
 		}
 	}
-	return fmt.Sprintf(createIndexTableForamt, DBName, indexDef.IndexTableName, sql)
+
+	var clusterBy = ""
+	if !isUK {
+		// For secondary index, we use cluster by rather than primary key.
+		clusterBy = fmt.Sprintf(" CLUSTER BY(%s)", planCols[0].Name)
+	}
+	return fmt.Sprintf(createIndexTableFormat, DBName, indexDef.IndexTableName, sql, clusterBy)
 }
 
 // genInsertIndexTableSql: Generate an insert statement for inserting data into the index table

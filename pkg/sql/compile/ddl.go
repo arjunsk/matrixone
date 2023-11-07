@@ -344,7 +344,7 @@ func (s *Scope) AlterTableInplace(c *Compile) error {
 			if act.AddIndex.IndexTableExist {
 				def := act.AddIndex.IndexInfo.GetIndexTables()[0]
 				// 2. create index table from unique index object
-				createSQL := genCreateIndexTableSql(def, indexDef, qry.Database)
+				createSQL := genCreateIndexTableSql(def, indexDef, qry.Database, indexDef.Unique)
 				err = c.runSql(createSQL)
 				if err != nil {
 					return err
@@ -988,7 +988,7 @@ func (s *Scope) CreateIndex(c *Compile) error {
 	// build and create index table for unique index
 	if qry.TableExist {
 		def := qry.GetIndex().GetIndexTables()[0]
-		createSQL := genCreateIndexTableSql(def, indexDef, qry.Database)
+		createSQL := genCreateIndexTableSql(def, indexDef, qry.Database, indexDef.Unique)
 		err = c.runSql(createSQL)
 		if err != nil {
 			return err
