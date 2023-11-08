@@ -1464,8 +1464,17 @@ func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.In
 		indexDef.IndexTableName = indexTableName
 		indexDef.Parts = indexParts
 		indexDef.TableExist = true
+		indexDef.IndexAlgo = indexInfo.KeyType.ToString()
+		indexDef.IndexAlgoTableType = ""
+
 		if indexInfo.IndexOption != nil {
 			indexDef.Comment = indexInfo.IndexOption.Comment
+
+			params, err := indexParamsToJsonString(indexInfo)
+			if err != nil {
+				return err
+			}
+			indexDef.IndexAlgoParams = params
 		} else {
 			indexDef.Comment = ""
 		}
@@ -1518,7 +1527,9 @@ func buildTruncateTable(stmt *tree.TruncateTable, ctx CompilerContext) (*Plan, e
 		truncateTable.IndexTableNames = make([]string, 0)
 		if tableDef.Indexes != nil {
 			for _, indexdef := range tableDef.Indexes {
-				if indexdef.TableExist {
+				// When truncate is issued on IVFINDEX based table, we don't clear the IVF index table data.
+				// We however handle the regular index table data.
+				if indexdef.TableExist && catalog.IsRegularIndexAlgo(indexdef.IndexAlgo) {
 					truncateTable.IndexTableNames = append(truncateTable.IndexTableNames, indexdef.IndexTableName)
 				}
 			}
@@ -1775,6 +1786,7 @@ func buildCreateIndex(stmt *tree.CreateIndex, ctx CompilerContext) (*Plan, error
 			Name:        indexName,
 			KeyParts:    stmt.KeyParts,
 			IndexOption: stmt.IndexOption,
+			KeyType:     stmt.IndexOption.IType,
 		}
 	default:
 		return nil, moerr.NewNotSupported(ctx.GetContext(), "statement: '%v'", tree.String(stmt, dialect.MYSQL))
