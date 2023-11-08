@@ -1344,144 +1344,169 @@ func buildUniqueIndexTable(createTable *plan.CreateTable, indexInfos []*tree.Uni
 	return nil
 }
 
-func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.Index, colMap map[string]*ColDef, pkeyName string, ctx CompilerContext) error {
-	nameCount := make(map[string]int)
+func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.Index, colMap map[string]*ColDef, pkeyName string, ctx CompilerContext) (err error) {
 
 	if len(pkeyName) == 0 {
 		return moerr.NewInternalErrorNoCtx("primary key cannot be empty for secondary index")
 	}
 
 	for _, indexInfo := range indexInfos {
-		indexDef := &plan.IndexDef{}
-		indexDef.Unique = false
+		err = checkIndexKeypartSupportability(ctx.GetContext(), indexInfo.KeyParts)
+		if err != nil {
+			return err
+		}
 
-		indexTableName, err := util.BuildIndexTableName(ctx.GetContext(), false)
+		var indexDef *plan.IndexDef
+		var tableDef *TableDef
+		switch indexInfo.KeyType {
+		case tree.INDEX_TYPE_BTREE, tree.INDEX_TYPE_INVALID:
+			indexDef, tableDef, err = buildRegularSecondaryIndexDef(ctx, indexInfo, colMap, pkeyName)
+		case tree.INDEX_TYPE_IVFFLAT:
+
+		}
 
 		if err != nil {
 			return err
 		}
-		tableDef := &TableDef{
-			Name: indexTableName,
-		}
-		indexParts := make([]string, 0)
-
-		isPkAlreadyPresentInIndexParts := false
-		for _, keyPart := range indexInfo.KeyParts {
-			name := keyPart.ColName.Parts[0]
-			if _, ok := colMap[name]; !ok {
-				return moerr.NewInvalidInput(ctx.GetContext(), "column '%s' is not exist", name)
-			}
-			if colMap[name].Typ.Id == int32(types.T_blob) {
-				return moerr.NewNotSupported(ctx.GetContext(), fmt.Sprintf("BLOB column '%s' cannot be in index", name))
-			}
-			if colMap[name].Typ.Id == int32(types.T_text) {
-				return moerr.NewNotSupported(ctx.GetContext(), fmt.Sprintf("TEXT column '%s' cannot be in index", name))
-			}
-			if colMap[name].Typ.Id == int32(types.T_json) {
-				return moerr.NewNotSupported(ctx.GetContext(), fmt.Sprintf("JSON column '%s' cannot be in index", name))
-			}
-			if colMap[name].Typ.Id == int32(types.T_array_float32) || colMap[name].Typ.Id == int32(types.T_array_float64) {
-				return moerr.NewNotSupported(ctx.GetContext(), fmt.Sprintf("VECTOR column '%s' cannot be in index", name))
-			}
-
-			if strings.Compare(name, pkeyName) == 0 || catalog.IsAlias(name) {
-				isPkAlreadyPresentInIndexParts = true
-			}
-			indexParts = append(indexParts, name)
-		}
-
-		if !isPkAlreadyPresentInIndexParts {
-			indexParts = append(indexParts, catalog.CreateAlias(pkeyName))
-		}
-
-		var keyName string
-		if len(indexParts) == 1 {
-			// This means indexParts only contains the primary key column
-			keyName = catalog.IndexTableIndexColName
-			colDef := &ColDef{
-				Name: keyName,
-				Alg:  plan.CompressType_Lz4,
-				Typ:  colMap[pkeyName].Typ, // Take Type of primary key column
-				Default: &plan.Default{
-					NullAbility:  false,
-					Expr:         nil,
-					OriginString: "",
-				},
-			}
-			tableDef.Cols = append(tableDef.Cols, colDef)
-			tableDef.Pkey = &PrimaryKeyDef{
-				Names:       []string{keyName},
-				PkeyColName: keyName,
-			}
-		} else {
-			keyName = catalog.IndexTableIndexColName
-			colDef := &ColDef{
-				Name: keyName,
-				Alg:  plan.CompressType_Lz4,
-				Typ: &Type{
-					Id:    int32(types.T_varchar),
-					Width: types.MaxVarcharLen,
-				},
-				Default: &plan.Default{
-					NullAbility:  false,
-					Expr:         nil,
-					OriginString: "",
-				},
-			}
-			tableDef.Cols = append(tableDef.Cols, colDef)
-			tableDef.Pkey = &PrimaryKeyDef{
-				Names:       []string{keyName},
-				PkeyColName: keyName,
-			}
-		}
-		if pkeyName != "" {
-			colDef := &ColDef{
-				Name: catalog.IndexTablePrimaryColName,
-				Alg:  plan.CompressType_Lz4,
-				Typ:  colMap[pkeyName].Typ,
-				Default: &plan.Default{
-					NullAbility:  false,
-					Expr:         nil,
-					OriginString: "",
-				},
-			}
-			tableDef.Cols = append(tableDef.Cols, colDef)
-		}
-
-		if indexInfo.Name == "" {
-			firstPart := indexInfo.KeyParts[0].ColName.Parts[0]
-			nameCount[firstPart]++
-			count := nameCount[firstPart]
-			indexName := firstPart
-			if count > 1 {
-				indexName = firstPart + "_" + strconv.Itoa(count)
-			}
-			indexDef.IndexName = indexName
-		} else {
-			indexDef.IndexName = indexInfo.Name
-		}
-
-		indexDef.IndexTableName = indexTableName
-		indexDef.Parts = indexParts
-		indexDef.TableExist = true
-		indexDef.IndexAlgo = indexInfo.KeyType.ToString()
-		indexDef.IndexAlgoTableType = ""
-
-		if indexInfo.IndexOption != nil {
-			indexDef.Comment = indexInfo.IndexOption.Comment
-
-			params, err := indexParamsToJsonString(indexInfo)
-			if err != nil {
-				return err
-			}
-			indexDef.IndexAlgoParams = params
-		} else {
-			indexDef.Comment = ""
-		}
 		createTable.IndexTables = append(createTable.IndexTables, tableDef)
 		createTable.TableDef.Indexes = append(createTable.TableDef.Indexes, indexDef)
+
 	}
 	return nil
+}
+
+func buildRegularSecondaryIndexDef(ctx CompilerContext, indexInfo *tree.Index, colMap map[string]*ColDef, pkeyName string) (*plan.IndexDef, *TableDef, error) {
+
+	// 1. indexDef init
+	indexDef := &plan.IndexDef{}
+	indexDef.Unique = false
+
+	// 2. tableDef init
+	indexTableName, err := util.BuildIndexTableName(ctx.GetContext(), false)
+	if err != nil {
+		return nil, nil, err
+	}
+	tableDef := &TableDef{
+		Name: indexTableName,
+	}
+
+	nameCount := make(map[string]int)
+	indexParts := make([]string, 0)
+
+	isPkAlreadyPresentInIndexParts := false
+	for _, keyPart := range indexInfo.KeyParts {
+		name := keyPart.ColName.Parts[0]
+		if _, ok := colMap[name]; !ok {
+			return nil, nil, moerr.NewInvalidInput(ctx.GetContext(), "column '%s' is not exist", name)
+		}
+		if colMap[name].Typ.Id == int32(types.T_blob) {
+			return nil, nil, moerr.NewNotSupported(ctx.GetContext(), fmt.Sprintf("BLOB column '%s' cannot be in index", name))
+		}
+		if colMap[name].Typ.Id == int32(types.T_text) {
+			return nil, nil, moerr.NewNotSupported(ctx.GetContext(), fmt.Sprintf("TEXT column '%s' cannot be in index", name))
+		}
+		if colMap[name].Typ.Id == int32(types.T_json) {
+			return nil, nil, moerr.NewNotSupported(ctx.GetContext(), fmt.Sprintf("JSON column '%s' cannot be in index", name))
+		}
+		if colMap[name].Typ.Id == int32(types.T_array_float32) || colMap[name].Typ.Id == int32(types.T_array_float64) {
+			return nil, nil, moerr.NewNotSupported(ctx.GetContext(), fmt.Sprintf("VECTOR column '%s' cannot be in index", name))
+		}
+
+		if strings.Compare(name, pkeyName) == 0 || catalog.IsAlias(name) {
+			isPkAlreadyPresentInIndexParts = true
+		}
+		indexParts = append(indexParts, name)
+	}
+
+	if !isPkAlreadyPresentInIndexParts {
+		indexParts = append(indexParts, catalog.CreateAlias(pkeyName))
+	}
+
+	var keyName string
+	if len(indexParts) == 1 {
+		// This means indexParts only contains the primary key column
+		keyName = catalog.IndexTableIndexColName
+		colDef := &ColDef{
+			Name: keyName,
+			Alg:  plan.CompressType_Lz4,
+			Typ:  colMap[pkeyName].Typ, // Take Type of primary key column
+			Default: &plan.Default{
+				NullAbility:  false,
+				Expr:         nil,
+				OriginString: "",
+			},
+		}
+		tableDef.Cols = append(tableDef.Cols, colDef)
+		tableDef.Pkey = &PrimaryKeyDef{
+			Names:       []string{keyName},
+			PkeyColName: keyName,
+		}
+	} else {
+		keyName = catalog.IndexTableIndexColName
+		colDef := &ColDef{
+			Name: keyName,
+			Alg:  plan.CompressType_Lz4,
+			Typ: &Type{
+				Id:    int32(types.T_varchar),
+				Width: types.MaxVarcharLen,
+			},
+			Default: &plan.Default{
+				NullAbility:  false,
+				Expr:         nil,
+				OriginString: "",
+			},
+		}
+		tableDef.Cols = append(tableDef.Cols, colDef)
+		tableDef.Pkey = &PrimaryKeyDef{
+			Names:       []string{keyName},
+			PkeyColName: keyName,
+		}
+	}
+	if pkeyName != "" {
+		colDef := &ColDef{
+			Name: catalog.IndexTablePrimaryColName,
+			Alg:  plan.CompressType_Lz4,
+			Typ:  colMap[pkeyName].Typ,
+			Default: &plan.Default{
+				NullAbility:  false,
+				Expr:         nil,
+				OriginString: "",
+			},
+		}
+		tableDef.Cols = append(tableDef.Cols, colDef)
+	}
+
+	if indexInfo.Name == "" {
+		firstPart := indexInfo.KeyParts[0].ColName.Parts[0]
+		nameCount[firstPart]++
+		count := nameCount[firstPart]
+		indexName := firstPart
+		if count > 1 {
+			indexName = firstPart + "_" + strconv.Itoa(count)
+		}
+		indexDef.IndexName = indexName
+	} else {
+		indexDef.IndexName = indexInfo.Name
+	}
+
+	indexDef.IndexTableName = indexTableName
+	indexDef.Parts = indexParts
+	indexDef.TableExist = true
+	indexDef.IndexAlgo = indexInfo.KeyType.ToString()
+	indexDef.IndexAlgoTableType = ""
+
+	if indexInfo.IndexOption != nil {
+		indexDef.Comment = indexInfo.IndexOption.Comment
+
+		params, err := indexParamsToJsonString(indexInfo)
+		if err != nil {
+			return nil, nil, err
+		}
+		indexDef.IndexAlgoParams = params
+	} else {
+		indexDef.Comment = ""
+	}
+	return indexDef, tableDef, nil
 }
 
 func buildTruncateTable(stmt *tree.TruncateTable, ctx CompilerContext) (*Plan, error) {
