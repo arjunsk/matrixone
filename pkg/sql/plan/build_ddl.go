@@ -1752,6 +1752,7 @@ func CreateSecondaryIndexDef(indexInfo *tree.Index,
 		indexDef.IndexAlgoParams = params
 	} else {
 		indexDef.Comment = ""
+		indexDef.IndexAlgoParams = ""
 	}
 
 	nameCount := make(map[string]int)
