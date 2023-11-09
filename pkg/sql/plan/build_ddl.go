@@ -1356,26 +1356,26 @@ func buildSecondaryIndexDef(createTable *plan.CreateTable, indexInfos []*tree.In
 			return err
 		}
 
-		var indexDef *plan.IndexDef
-		var tableDef *TableDef
+		var indexDef []*plan.IndexDef
+		var tableDef []*TableDef
 		switch indexInfo.KeyType {
 		case tree.INDEX_TYPE_BTREE, tree.INDEX_TYPE_INVALID:
 			indexDef, tableDef, err = buildRegularSecondaryIndexDef(ctx, indexInfo, colMap, pkeyName)
 		case tree.INDEX_TYPE_IVFFLAT:
-
+			indexDef, tableDef, err = buildIvfFlatSecondaryIndexDef(ctx, indexInfo, colMap, pkeyName)
 		}
 
 		if err != nil {
 			return err
 		}
-		createTable.IndexTables = append(createTable.IndexTables, tableDef)
-		createTable.TableDef.Indexes = append(createTable.TableDef.Indexes, indexDef)
+		createTable.IndexTables = append(createTable.IndexTables, tableDef...)
+		createTable.TableDef.Indexes = append(createTable.TableDef.Indexes, indexDef...)
 
 	}
 	return nil
 }
 
-func buildRegularSecondaryIndexDef(ctx CompilerContext, indexInfo *tree.Index, colMap map[string]*ColDef, pkeyName string) (*plan.IndexDef, *TableDef, error) {
+func buildRegularSecondaryIndexDef(ctx CompilerContext, indexInfo *tree.Index, colMap map[string]*ColDef, pkeyName string) ([]*plan.IndexDef, []*TableDef, error) {
 
 	// 1. indexDef init
 	indexDef := &plan.IndexDef{}
@@ -1506,7 +1506,254 @@ func buildRegularSecondaryIndexDef(ctx CompilerContext, indexInfo *tree.Index, c
 	} else {
 		indexDef.Comment = ""
 	}
-	return indexDef, tableDef, nil
+	return []*plan.IndexDef{indexDef}, []*TableDef{tableDef}, nil
+}
+
+func buildIvfFlatSecondaryIndexDef(ctx CompilerContext, indexInfo *tree.Index, colMap map[string]*ColDef, pkeyName string) ([]*plan.IndexDef, []*TableDef, error) {
+
+	indexParts := make([]string, 1)
+
+	// 0. Validate: We only support 1 column of either VECF32 or VECF64 type
+	{
+		if len(indexInfo.KeyParts) != 1 {
+			return nil, nil, moerr.NewInternalErrorNoCtx("don't support multi column  IVF vector index")
+		}
+
+		name := indexInfo.KeyParts[0].ColName.Parts[0]
+		indexParts[0] = name
+
+		if _, ok := colMap[name]; !ok {
+			return nil, nil, moerr.NewInvalidInput(ctx.GetContext(), "column '%s' is not exist", name)
+		}
+		if !(colMap[name].Typ.Id == int32(types.T_array_float32) || colMap[name].Typ.Id == int32(types.T_array_float64)) {
+			return nil, nil, moerr.NewNotSupported(ctx.GetContext(), fmt.Sprintf("IVFFLAT only supports VECFXX column types"))
+		}
+
+	}
+
+	indexDefs := make([]*plan.IndexDef, 3)
+	tableDefs := make([]*TableDef, 3)
+
+	// 1. create ivf-flat `metadata` table
+	{
+		// 1.a tableDef1 init
+		indexTableName, err := util.BuildIndexTableName(ctx.GetContext(), false)
+		if err != nil {
+			return nil, nil, err
+		}
+		tableDefs[0] = &TableDef{
+			Name:      indexTableName,
+			TableType: catalog.SystemSI_IVFFLAT_TblType_Metadata,
+			Cols:      make([]*ColDef, 2),
+		}
+
+		// 1.b indexDef1 init
+		//TODO: fill
+		indexDefs[0] = &plan.IndexDef{}
+		indexDefs[0].Unique = false
+		indexDefs[0].IndexName = ""
+		indexDefs[0].IndexTableName = indexTableName
+		indexDefs[0].IndexAlgoTableType = catalog.SystemSI_IVFFLAT_TblType_Metadata
+		indexDefs[0].Parts = indexParts
+		indexDefs[0].TableExist = true
+		if indexInfo.IndexOption != nil {
+			indexDefs[0].Comment = indexInfo.IndexOption.Comment
+		} else {
+			indexDefs[0].Comment = ""
+		}
+		indexDefs[0].IndexAlgo = indexInfo.KeyType.ToString()
+
+		// 1.c columns: key (PK), val
+		tableDefs[0].Cols[0] = &ColDef{
+			Name: catalog.SystemSI_IVFFLAT_TblCol_Metadata_key,
+			Alg:  plan.CompressType_Lz4,
+			Typ: &Type{
+				Id:    int32(types.T_varchar),
+				Width: types.MaxVarcharLen,
+			},
+			Primary: true,
+			Default: &plan.Default{
+				NullAbility:  false,
+				Expr:         nil,
+				OriginString: "",
+			},
+		}
+		tableDefs[0].Cols[1] = &ColDef{
+			Name: catalog.SystemSI_IVFFLAT_TblCol_Metadata_val,
+			Alg:  plan.CompressType_Lz4,
+			Typ: &Type{
+				Id:    int32(types.T_varchar),
+				Width: types.MaxVarcharLen,
+			},
+			Default: &plan.Default{
+				NullAbility:  false,
+				Expr:         nil,
+				OriginString: "",
+			},
+		}
+
+		// 1.d PK def
+		tableDefs[0].Pkey = &PrimaryKeyDef{
+			Names:       []string{catalog.SystemSI_IVFFLAT_TblCol_Metadata_key},
+			PkeyColName: catalog.SystemSI_IVFFLAT_TblCol_Metadata_key,
+		}
+	}
+
+	// 2. create ivf-flat `centroids` table
+	{
+		// 2.a tableDefs[1] init
+		indexTableName, err := util.BuildIndexTableName(ctx.GetContext(), false)
+		if err != nil {
+			return nil, nil, err
+		}
+		tableDefs[1] = &TableDef{
+			Name:      indexTableName,
+			TableType: catalog.SystemSI_IVFFLAT_TblType_Centroids,
+			Cols:      make([]*ColDef, 3),
+		}
+
+		// 2.b indexDefs[1] init
+		indexDefs[1] = &plan.IndexDef{}
+		indexDefs[1].Unique = false
+		indexDefs[1].IndexName = ""
+		indexDefs[1].IndexTableName = indexTableName
+		indexDefs[1].IndexAlgoTableType = catalog.SystemSI_IVFFLAT_TblType_Centroids
+		indexDefs[1].Parts = indexParts
+		indexDefs[1].TableExist = true
+		if indexInfo.IndexOption != nil {
+			indexDefs[1].Comment = indexInfo.IndexOption.Comment
+		} else {
+			indexDefs[1].Comment = ""
+		}
+		indexDefs[1].IndexAlgo = indexInfo.KeyType.ToString()
+
+		// 2.c columns: centroid (PK), id, version
+		tableDefs[1].Cols[0] = &ColDef{
+			Name: catalog.SystemSI_IVFFLAT_TblCol_Centroids_centroid,
+			Alg:  plan.CompressType_Lz4,
+			Typ: &Type{
+				Id:    colMap[indexInfo.KeyParts[0].ColName.Parts[0]].Typ.Id,
+				Width: colMap[indexInfo.KeyParts[0].ColName.Parts[0]].Typ.Width,
+			},
+			Primary: true,
+			Default: &plan.Default{
+				NullAbility:  false,
+				Expr:         nil,
+				OriginString: "",
+			},
+		}
+		tableDefs[1].Cols[1] = &ColDef{
+			Name: catalog.SystemSI_IVFFLAT_TblCol_Centroids_id,
+			Alg:  plan.CompressType_Lz4,
+			Typ: &plan.Type{
+				Id:    int32(types.T_int64),
+				Width: 0,
+				Scale: 0,
+			},
+			Default: &plan.Default{
+				NullAbility:  false,
+				Expr:         nil,
+				OriginString: "",
+			},
+		}
+		tableDefs[1].Cols[2] = &ColDef{
+			Name: catalog.SystemSI_IVFFLAT_TblCol_Centroids_version,
+			Alg:  plan.CompressType_Lz4,
+			Typ: &plan.Type{
+				Id:    int32(types.T_int64),
+				Width: 0,
+				Scale: 0,
+			},
+			Default: &plan.Default{
+				NullAbility:  false,
+				Expr:         nil,
+				OriginString: "",
+			},
+		}
+
+		// 2.d PK def
+		tableDefs[1].Pkey = &PrimaryKeyDef{
+			Names:       []string{catalog.SystemSI_IVFFLAT_TblCol_Centroids_centroid},
+			PkeyColName: catalog.SystemSI_IVFFLAT_TblCol_Centroids_centroid,
+		}
+	}
+
+	// 3. create ivf-flat `entries` table
+	//TODO: fix the compound pk issue
+	{
+		// 3.a tableDefs[2] init
+		indexTableName, err := util.BuildIndexTableName(ctx.GetContext(), false)
+		if err != nil {
+			return nil, nil, err
+		}
+		tableDefs[2] = &TableDef{
+			Name:      indexTableName,
+			TableType: catalog.SystemSI_IVFFLAT_TblType_Entries,
+			Cols:      make([]*ColDef, 3),
+		}
+
+		// 3.b indexDefs[2] init
+		indexDefs[2] = &plan.IndexDef{}
+		indexDefs[2].Unique = false
+		indexDefs[2].IndexName = ""
+		indexDefs[2].IndexTableName = indexTableName
+		indexDefs[2].IndexAlgoTableType = catalog.SystemSI_IVFFLAT_TblType_Entries
+		indexDefs[2].Parts = indexParts
+		indexDefs[2].TableExist = true
+		if indexInfo.IndexOption != nil {
+			indexDefs[2].Comment = indexInfo.IndexOption.Comment
+		} else {
+			indexDefs[2].Comment = ""
+		}
+		indexDefs[2].IndexAlgo = indexInfo.KeyType.ToString()
+
+		// 3.c columns: id, version, pk , PRIMARY KEY (id, version)
+		tableDefs[2].Cols[0] = &ColDef{
+			Name: catalog.SystemSI_IVFFLAT_TblCol_Entries_id,
+			Alg:  plan.CompressType_Lz4,
+			Typ: &plan.Type{
+				Id:    int32(types.T_int64),
+				Width: 0,
+				Scale: 0,
+			},
+			Default: &plan.Default{
+				NullAbility:  false,
+				Expr:         nil,
+				OriginString: "",
+			},
+		}
+		tableDefs[2].Cols[1] = &ColDef{
+			Name: catalog.SystemSI_IVFFLAT_TblCol_Entries_version,
+			Alg:  plan.CompressType_Lz4,
+			Typ: &plan.Type{
+				Id:    int32(types.T_int64),
+				Width: 0,
+				Scale: 0,
+			},
+			Default: &plan.Default{
+				NullAbility:  false,
+				Expr:         nil,
+				OriginString: "",
+			},
+		}
+		tableDefs[2].Cols[2] = &ColDef{
+			Name: catalog.SystemSI_IVFFLAT_TblCol_Entries_pk,
+			Alg:  plan.CompressType_Lz4,
+			Typ:  colMap[pkeyName].Typ,
+			Default: &plan.Default{
+				NullAbility:  false,
+				Expr:         nil,
+				OriginString: "",
+			},
+		}
+
+		// 3.d PK def
+		tableDefs[2].Pkey = &PrimaryKeyDef{
+			Names: []string{catalog.SystemSI_IVFFLAT_TblCol_Centroids_id, catalog.SystemSI_IVFFLAT_TblCol_Centroids_version},
+		}
+	}
+
+	return indexDefs, tableDefs, nil
 }
 
 func buildTruncateTable(stmt *tree.TruncateTable, ctx CompilerContext) (*Plan, error) {

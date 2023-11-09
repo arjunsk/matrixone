@@ -981,34 +981,67 @@ func (s *Scope) CreateIndex(c *Compile) error {
 	}
 	tableId := r.GetTableID(c.ctx)
 
-	tableDef := plan2.DeepCopyTableDef(qry.TableDef, true)
-	indexDef := qry.GetIndex().GetTableDef().Indexes[0]
+	originalTableDef := plan2.DeepCopyTableDef(qry.TableDef, true)
+	indexInfo := qry.GetIndex() // IndexInfo is named same as planner's IndexInfo
+	indexTableDef := indexInfo.GetTableDef()
 
-	if indexDef.Unique {
-		// 0. check original data is not duplicated
-		err = genNewUniqueIndexDuplicateCheck(c, qry.Database, tableDef.Name, partsToColsStr(indexDef.Parts))
-		if err != nil {
-			return err
+	for _, indexDef := range indexTableDef.Indexes {
+		// 0. if unique, do duplicate check
+		if indexDef.Unique {
+			err = genNewUniqueIndexDuplicateCheck(c, qry.Database, originalTableDef.Name, partsToColsStr(indexDef.Parts))
+			if err != nil {
+				return err
+			}
+		}
+
+		// 1. unique index and regular secondary index have similar logic.
+		if indexDef.Unique || (!indexDef.Unique && catalog.IsRegularIndexAlgo(indexDef.IndexAlgo)) {
+			def := indexInfo.GetIndexTables()[0]
+			createSQL := genCreateIndexTableSql(def, indexDef, qry.Database)
+			err = c.runSql(createSQL)
+			if err != nil {
+				return err
+			}
+
+			insertSQL := genInsertIndexTableSql(originalTableDef, indexDef, qry.Database, indexDef.Unique)
+			err = c.runSql(insertSQL)
+			if err != nil {
+				return err
+			}
+			continue
+		}
+
+		// 2. if it is ivf index, then create and populate 3 auxiliary tables: meta, centroids, entries.
+		if !indexDef.Unique && catalog.IsIvfIndexAlgo(indexDef.IndexAlgo) {
+			// TODO: do we need BEGIN/COMMIT here?
+
+			// 2.a build 3 auxiliary tables
+			for _, def := range indexInfo.GetIndexTables() {
+				createSQL := genCreateIndexTableSqlForIvfIndex(def, indexDef, qry.Database)
+				err = c.runSql(createSQL)
+				if err != nil {
+					return err
+				}
+			}
+
+			/// 2.b. check the count of records and decide if we need sampling.
+			query := "select count(" + indexDef.Parts[0] + ") from " + qry.Database + "." + originalTableDef.Name
+			res, err := c.runSqlWithResult(query)
+			if err != nil {
+				return err
+			}
+
+			res.ReadRows(func(cols []*vector.Vector) bool {
+				return true
+			})
+			//TODO: fill
+
+			continue
 		}
 	}
 
-	// build and create index table for unique/secondary index
-	if qry.TableExist {
-		def := qry.GetIndex().GetIndexTables()[0]
-		createSQL := genCreateIndexTableSql(def, indexDef, qry.Database)
-		err = c.runSql(createSQL)
-		if err != nil {
-			return err
-		}
-
-		insertSQL := genInsertIndexTableSql(tableDef, indexDef, qry.Database, indexDef.Unique)
-		err = c.runSql(insertSQL)
-		if err != nil {
-			return err
-		}
-	}
 	// build and update constraint def
-	defs, err := planDefsToExeDefs(qry.GetIndex().GetTableDef())
+	defs, err := planDefsToExeDefs(indexTableDef)
 	if err != nil {
 		return err
 	}
@@ -1035,13 +1068,15 @@ func (s *Scope) CreateIndex(c *Compile) error {
 	}
 
 	// generate insert into mo_indexes metadata
-	sql, err := makeInsertSingleIndexSQL(c.e, c.proc, databaseId, tableId, indexDef)
-	if err != nil {
-		return err
-	}
-	err = c.runSql(sql)
-	if err != nil {
-		return err
+	for _, indexDef := range indexTableDef.Indexes {
+		sql, err := makeInsertSingleIndexSQL(c.e, c.proc, databaseId, tableId, indexDef)
+		if err != nil {
+			return err
+		}
+		err = c.runSql(sql)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
