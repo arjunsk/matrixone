@@ -1548,20 +1548,10 @@ func buildIvfFlatSecondaryIndexDef(ctx CompilerContext, indexInfo *tree.Index, c
 		}
 
 		// 1.b indexDef1 init
-		//TODO: fill
-		indexDefs[0] = &plan.IndexDef{}
-		indexDefs[0].Unique = false
-		indexDefs[0].IndexName = ""
-		indexDefs[0].IndexTableName = indexTableName
-		indexDefs[0].IndexAlgoTableType = catalog.SystemSI_IVFFLAT_TblType_Metadata
-		indexDefs[0].Parts = indexParts
-		indexDefs[0].TableExist = true
-		if indexInfo.IndexOption != nil {
-			indexDefs[0].Comment = indexInfo.IndexOption.Comment
-		} else {
-			indexDefs[0].Comment = ""
+		indexDefs[0], err = CreateSecondaryIndexDef(indexInfo, indexTableName, catalog.SystemSI_IVFFLAT_TblType_Metadata, indexParts)
+		if err != nil {
+			return nil, nil, err
 		}
-		indexDefs[0].IndexAlgo = indexInfo.KeyType.ToString()
 
 		// 1.c columns: key (PK), val
 		tableDefs[0].Cols[0] = &ColDef{
@@ -1613,19 +1603,10 @@ func buildIvfFlatSecondaryIndexDef(ctx CompilerContext, indexInfo *tree.Index, c
 		}
 
 		// 2.b indexDefs[1] init
-		indexDefs[1] = &plan.IndexDef{}
-		indexDefs[1].Unique = false
-		indexDefs[1].IndexName = ""
-		indexDefs[1].IndexTableName = indexTableName
-		indexDefs[1].IndexAlgoTableType = catalog.SystemSI_IVFFLAT_TblType_Centroids
-		indexDefs[1].Parts = indexParts
-		indexDefs[1].TableExist = true
-		if indexInfo.IndexOption != nil {
-			indexDefs[1].Comment = indexInfo.IndexOption.Comment
-		} else {
-			indexDefs[1].Comment = ""
+		indexDefs[1], err = CreateSecondaryIndexDef(indexInfo, indexTableName, catalog.SystemSI_IVFFLAT_TblType_Centroids, indexParts)
+		if err != nil {
+			return nil, nil, err
 		}
-		indexDefs[1].IndexAlgo = indexInfo.KeyType.ToString()
 
 		// 2.c columns: centroid (PK), id, version
 		tableDefs[1].Cols[0] = &ColDef{
@@ -1693,19 +1674,10 @@ func buildIvfFlatSecondaryIndexDef(ctx CompilerContext, indexInfo *tree.Index, c
 		}
 
 		// 3.b indexDefs[2] init
-		indexDefs[2] = &plan.IndexDef{}
-		indexDefs[2].Unique = false
-		indexDefs[2].IndexName = ""
-		indexDefs[2].IndexTableName = indexTableName
-		indexDefs[2].IndexAlgoTableType = catalog.SystemSI_IVFFLAT_TblType_Entries
-		indexDefs[2].Parts = indexParts
-		indexDefs[2].TableExist = true
-		if indexInfo.IndexOption != nil {
-			indexDefs[2].Comment = indexInfo.IndexOption.Comment
-		} else {
-			indexDefs[2].Comment = ""
+		indexDefs[2], err = CreateSecondaryIndexDef(indexInfo, indexTableName, catalog.SystemSI_IVFFLAT_TblType_Entries, indexParts)
+		if err != nil {
+			return nil, nil, err
 		}
-		indexDefs[2].IndexAlgo = indexInfo.KeyType.ToString()
 
 		// 3.c columns: id, version, pk , PRIMARY KEY (id, version)
 		tableDefs[2].Cols[0] = &ColDef{
@@ -1754,6 +1726,49 @@ func buildIvfFlatSecondaryIndexDef(ctx CompilerContext, indexInfo *tree.Index, c
 	}
 
 	return indexDefs, tableDefs, nil
+}
+
+func CreateSecondaryIndexDef(indexInfo *tree.Index,
+	indexTableName, indexAlgoTableType string,
+	indexParts []string) (*plan.IndexDef, error) {
+
+	indexDef := &plan.IndexDef{}
+
+	indexDef.IndexTableName = indexTableName
+	indexDef.Parts = indexParts
+
+	indexDef.Unique = false
+	indexDef.TableExist = true
+
+	// Algorithm related fields
+	indexDef.IndexAlgo = indexInfo.KeyType.ToString()
+	indexDef.IndexAlgoTableType = indexAlgoTableType
+	if indexInfo.IndexOption != nil {
+		indexDef.Comment = indexInfo.IndexOption.Comment
+		params, err := indexParamsToJsonString(indexInfo)
+		if err != nil {
+			return nil, err
+		}
+		indexDef.IndexAlgoParams = params
+	} else {
+		indexDef.Comment = ""
+	}
+
+	nameCount := make(map[string]int)
+	if indexInfo.Name == "" {
+		firstPart := indexInfo.KeyParts[0].ColName.Parts[0]
+		nameCount[firstPart]++
+		count := nameCount[firstPart]
+		indexName := firstPart
+		if count > 1 {
+			indexName = firstPart + "_" + strconv.Itoa(count)
+		}
+		indexDef.IndexName = indexName
+	} else {
+		indexDef.IndexName = indexInfo.Name
+	}
+
+	return indexDef, nil
 }
 
 func buildTruncateTable(stmt *tree.TruncateTable, ctx CompilerContext) (*Plan, error) {
