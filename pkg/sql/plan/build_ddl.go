@@ -1498,7 +1498,7 @@ func buildRegularSecondaryIndexDef(ctx CompilerContext, indexInfo *tree.Index, c
 	if indexInfo.IndexOption != nil {
 		indexDef.Comment = indexInfo.IndexOption.Comment
 
-		params, err := indexParamsToJsonString(indexInfo)
+		params, err := catalog.IndexParamsToJsonString(indexInfo)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1584,8 +1584,7 @@ func buildIvfFlatSecondaryIndexDef(ctx CompilerContext, indexInfo *tree.Index, c
 
 		// 1.d PK def
 		tableDefs[0].Pkey = &PrimaryKeyDef{
-			Names:       []string{catalog.SystemSI_IVFFLAT_TblCol_Metadata_key},
-			PkeyColName: catalog.SystemSI_IVFFLAT_TblCol_Metadata_key,
+			Names: []string{catalog.SystemSI_IVFFLAT_TblCol_Metadata_key},
 		}
 	}
 
@@ -1654,8 +1653,7 @@ func buildIvfFlatSecondaryIndexDef(ctx CompilerContext, indexInfo *tree.Index, c
 
 		// 2.d PK def
 		tableDefs[1].Pkey = &PrimaryKeyDef{
-			Names:       []string{catalog.SystemSI_IVFFLAT_TblCol_Centroids_centroid},
-			PkeyColName: catalog.SystemSI_IVFFLAT_TblCol_Centroids_centroid,
+			Names: []string{catalog.SystemSI_IVFFLAT_TblCol_Centroids_centroid},
 		}
 	}
 
@@ -1745,13 +1743,15 @@ func CreateSecondaryIndexDef(indexInfo *tree.Index,
 	indexDef.IndexAlgoTableType = indexAlgoTableType
 	if indexInfo.IndexOption != nil {
 		indexDef.Comment = indexInfo.IndexOption.Comment
-		params, err := indexParamsToJsonString(indexInfo)
+		params, err := catalog.IndexParamsToJsonString(indexInfo)
 		if err != nil {
 			return nil, err
 		}
 		indexDef.IndexAlgoParams = params
 	} else {
 		indexDef.Comment = ""
+
+		// default lists and similarity_function
 		indexDef.IndexAlgoParams = ""
 	}
 

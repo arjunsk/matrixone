@@ -241,11 +241,11 @@ const (
 
 	// IVF_FLAT Centroids - Column names
 	SystemSI_IVFFLAT_TblCol_Centroids_centroid = "centroid"
-	SystemSI_IVFFLAT_TblCol_Centroids_id       = "id"
+	SystemSI_IVFFLAT_TblCol_Centroids_id       = "centroid_id"
 	SystemSI_IVFFLAT_TblCol_Centroids_version  = "version"
 
 	// IVF_FLAT Entries - Column names
-	SystemSI_IVFFLAT_TblCol_Entries_id      = "id"
+	SystemSI_IVFFLAT_TblCol_Entries_id      = "centroid_id"
 	SystemSI_IVFFLAT_TblCol_Entries_version = "version"
 	SystemSI_IVFFLAT_TblCol_Entries_pk      = IndexTablePrimaryColName
 )

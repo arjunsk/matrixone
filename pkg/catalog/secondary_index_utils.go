@@ -15,8 +15,11 @@
 package catalog
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/matrixorigin/matrixone/pkg/common/moerr"
 	"github.com/matrixorigin/matrixone/pkg/sql/parsers/tree"
+	"strconv"
 	"strings"
 )
 
@@ -45,9 +48,105 @@ func IsIvfIndexAlgo(algo string) bool {
 	return _algo == MoIndexIvfFlatAlgo.ToString()
 }
 
+// ------------------------[START] IndexAlgoParams------------------------
+const (
+	IndexAlgoParamLists            = "lists"
+	IndexAlgoParamSimilarityFn     = "similarity_function"
+	IndexAlgoParamSimilarityFn_ip  = "ip"
+	IndexAlgoParamSimilarityFn_l2  = "l2"
+	IndexAlgoParamSimilarityFn_cos = "cos"
+)
+
+// IndexParamsToStringList used by buildShowCreateTable and restoreDDL
+func IndexParamsToStringList(indexParams string) (string, error) {
+	result, err := IndexParamsStringToMap(indexParams)
+	if err != nil {
+		return "", err
+	}
+
+	res := ""
+	if val, ok := result[IndexAlgoParamLists]; ok {
+		res += fmt.Sprintf(" %s %s", IndexAlgoParamLists, val)
+	}
+
+	if similarityFn, ok := result[IndexAlgoParamSimilarityFn]; ok {
+		if similarityFn == IndexAlgoParamSimilarityFn_ip ||
+			similarityFn == IndexAlgoParamSimilarityFn_l2 ||
+			similarityFn == IndexAlgoParamSimilarityFn_cos {
+			res += fmt.Sprintf(" %s '%s'", IndexAlgoParamSimilarityFn, similarityFn)
+		} else {
+			return "", moerr.NewInternalErrorNoCtx("invalid similarity function. not of type '%s', '%s', '%s'",
+				IndexAlgoParamSimilarityFn_ip, IndexAlgoParamSimilarityFn_l2, IndexAlgoParamSimilarityFn_cos)
+		}
+	}
+
+	return res, nil
+}
+
+// IndexParamsToJsonString used by buildSecondaryIndexDef
+func IndexParamsToJsonString(def *tree.Index) (string, error) {
+
+	res, err := IndexParamsToMap(def)
+	if err != nil {
+		return "", err
+	}
+
+	if len(res) == 0 {
+		return "", nil // don't return empty json "{}" string
+	}
+
+	str, err := json.Marshal(res)
+	if err != nil {
+		return "", err
+	}
+	return string(str), nil
+}
+
+// IndexParamsStringToMap used by buildShowCreateTable and restoreDDL
+func IndexParamsStringToMap(indexParams string) (map[string]string, error) {
+	var result map[string]string
+	err := json.Unmarshal([]byte(indexParams), &result)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func IndexParamsToMap(def *tree.Index) (map[string]string, error) {
+	res := make(map[string]string)
+
+	switch def.KeyType {
+	case tree.INDEX_TYPE_BTREE, tree.INDEX_TYPE_INVALID:
+		// do nothing
+	case tree.INDEX_TYPE_IVFFLAT:
+		if def.IndexOption.AlgoParamList != 0 {
+			res[IndexAlgoParamLists] = strconv.FormatInt(def.IndexOption.AlgoParamList, 10)
+		} else {
+			res[IndexAlgoParamLists] = "1" // set lists = 1 as default
+		}
+
+		if len(def.IndexOption.AlgoParamVectorSimilarityFn) > 0 {
+			similarityFn := strings.ToLower(strings.TrimSpace(def.IndexOption.AlgoParamVectorSimilarityFn))
+			if similarityFn == IndexAlgoParamSimilarityFn_ip ||
+				similarityFn == IndexAlgoParamSimilarityFn_l2 ||
+				similarityFn == IndexAlgoParamSimilarityFn_cos {
+				res[IndexAlgoParamSimilarityFn] = def.IndexOption.AlgoParamVectorSimilarityFn
+			} else {
+				return nil, moerr.NewInternalErrorNoCtx("invalid similarity function. not of type '%s', '%s', '%s'",
+					IndexAlgoParamSimilarityFn_ip, IndexAlgoParamSimilarityFn_l2, IndexAlgoParamSimilarityFn_cos)
+			}
+		} else {
+			res[IndexAlgoParamSimilarityFn] = IndexAlgoParamSimilarityFn_cos // set cos as default
+		}
+	}
+	return res, nil
+}
+
+//------------------------[END] IndexAlgoParams------------------------
+
 // ------------------------[START] Aliaser------------------------
 
-// This class is used by "secondary index" to resolve the "programmatically generated PK" appended to the
+// This code is used by "secondary index" to resolve the "programmatically generated PK" appended to the
 // end of the index key "__mo_index_idx_col".
 
 const (

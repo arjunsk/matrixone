@@ -163,7 +163,7 @@ func genCreateIndexTableSqlForIvfIndex(indexTableDef *plan.TableDef, indexDef *p
 		if i >= 1 {
 			sql += ","
 		}
-		sql += planCol.Name + " "
+		sql += "`" + planCol.Name + "`" + " "
 		typeId := types.T(planCol.Typ.Id)
 		switch typeId {
 		case types.T_char:
@@ -185,11 +185,13 @@ func genCreateIndexTableSqlForIvfIndex(indexTableDef *plan.TableDef, indexDef *p
 		default:
 			sql += typeId.String()
 		}
+
 	}
 
 	if indexTableDef.Pkey.Names != nil {
-		pkStr := fmt.Sprintf(", primary key ( %s )", partsToColsStr(indexTableDef.Pkey.Names))
-		sql += pkStr
+		//pkStr := fmt.Sprintf(", primary key ( %s )", partsToColsStr(indexTableDef.Pkey.Names))
+		//sql += pkStr
+		//TODO: fix VECTOR PK issue
 	}
 
 	return fmt.Sprintf(createIndexTableForamt, DBName, indexDef.IndexTableName, sql)
@@ -462,11 +464,10 @@ func partsToColsStr(parts []string) string {
 	var temp string
 	for i, part := range parts {
 		part = catalog.ResolveAlias(part)
-		if i == 0 {
-			temp += part
-		} else {
-			temp += "," + part
+		if i > 0 {
+			temp += ","
 		}
+		temp += "`" + part + "`"
 	}
 	return temp
 }

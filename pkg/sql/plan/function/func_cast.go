@@ -307,6 +307,7 @@ var supportedTypeCast = map[types.T][]types.T{
 
 	types.T_json: {
 		types.T_char, types.T_varchar, types.T_text,
+		//types.T_array_float32, types.T_array_float64,
 	},
 
 	types.T_uuid: {
@@ -1588,6 +1589,12 @@ func jsonToOthers(ctx context.Context,
 	case types.T_char, types.T_varchar, types.T_text:
 		rs := vector.MustFunctionResult[types.Varlena](result)
 		return jsonToStr(source, rs, length)
+		//case types.T_array_float32:
+		//	rs := vector.MustFunctionResult[types.Varlena](result)
+		//	return strToArray[float32](ctx, source, rs, length, toType)
+		//case types.T_array_float64:
+		//	rs := vector.MustFunctionResult[types.Varlena](result)
+		//	return strToArray[float64](ctx, source, rs, length, toType)
 	}
 	return moerr.NewInternalError(ctx, fmt.Sprintf("unsupported cast from json to %s", toType))
 }
