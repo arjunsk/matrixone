@@ -1505,6 +1505,7 @@ func buildRegularSecondaryIndexDef(ctx CompilerContext, indexInfo *tree.Index, c
 		indexDef.IndexAlgoParams = params
 	} else {
 		indexDef.Comment = ""
+			indexDef.IndexAlgoParams = ""
 	}
 	return []*plan.IndexDef{indexDef}, []*TableDef{tableDef}, nil
 }

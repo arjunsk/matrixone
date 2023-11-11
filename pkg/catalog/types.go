@@ -209,6 +209,11 @@ const (
 	*/
 	SystemPartitionRel = "partition"
 
+	//// Secondary Index Relations
+	//SystemSecondaryIndex_IvfMetadataRel         = "metadata"
+	//SystemSecondaryIndex_IvfCentroidsRel        = "centroids"
+	//SystemSecondaryIndex_IvfCentroidsMappingRel = "entries"
+
 	SystemColPKConstraint = "p"
 	SystemColNoConstraint = "n"
 
