@@ -340,7 +340,7 @@ func (s *Scope) AlterTableInplace(c *Compile) error {
 				} else if !indexDef.Unique && catalog.IsRegularIndexAlgo(indexDef.IndexAlgo) {
 					// 2. Regular Secondary index
 					err = s.handleRegularSecondaryIndexTable(c, indexDef, qry.Database, tableDef, indexInfo)
-				} else if !indexDef.Unique && catalog.IsIvfIndexAlgo(indexDef.IndexAlgo) {
+				} else if !indexDef.Unique && catalog.IsVectorIvfFlatIndexAlgo(indexDef.IndexAlgo) {
 					// 3. IVF indexDefs are aggregated and handled later
 					if _, ok := multiTableIndexes[indexDef.IndexAlgo]; !ok {
 						multiTableIndexes[indexDef.IndexAlgo] = make(map[string]*plan.IndexDef)
@@ -1097,7 +1097,7 @@ func (s *Scope) CreateIndex(c *Compile) error {
 		} else if !indexDef.Unique && catalog.IsRegularIndexAlgo(indexAlgo) {
 			// 2. Regular Secondary index
 			err = s.handleRegularSecondaryIndexTable(c, indexDef, qry.Database, originalTableDef, indexInfo)
-		} else if !indexDef.Unique && catalog.IsIvfIndexAlgo(indexAlgo) {
+		} else if !indexDef.Unique && catalog.IsVectorIvfFlatIndexAlgo(indexAlgo) {
 			// 3. IVF indexDefs are aggregated and handled later
 			if _, ok := multiTableIndexes[indexAlgo]; !ok {
 				multiTableIndexes[indexAlgo] = make(map[string]*plan.IndexDef)

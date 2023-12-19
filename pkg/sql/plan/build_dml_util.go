@@ -956,7 +956,7 @@ func makeInsertPlan(
 				if err != nil {
 					return err
 				}
-			} else if indexdef.TableExist && catalog.IsIvfIndexAlgo(indexdef.IndexAlgo) {
+			} else if indexdef.TableExist && catalog.IsVectorIvfFlatIndexAlgo(indexdef.IndexAlgo) {
 
 				// IVF indexDefs are aggregated and handled later
 				if _, ok := multiTableIndexes[indexdef.IndexName]; !ok {
