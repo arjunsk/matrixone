@@ -932,6 +932,12 @@ func makeInsertPlan(
 
 			// append plan for the hidden tables of unique/secondary keys
 			if indexdef.TableExist && catalog.IsRegularIndexAlgo(indexdef.IndexAlgo) {
+
+				/********
+				NOTE: make sure to make the major change applied to secondary index, to IVFFLAT index as well.
+				Else IVFFLAT index would fail
+				********/
+
 				idxRef, idxTableDef := ctx.Resolve(objRef.SchemaName, indexdef.IndexTableName)
 				// remove row_id
 				for i, col := range idxTableDef.Cols {
