@@ -291,21 +291,21 @@ func buildDeletePlans(ctx CompilerContext, builder *QueryBuilder, bindCtx *BindC
 		multiTableIndexes := make(map[string]*MultiTableIndex)
 
 		for idx, indexdef := range delCtx.tableDef.Indexes {
-			if isUpdate {
-				skipDel := true
-				for _, colName := range indexdef.Parts {
-					if colIdx, ok := posMap[colName]; ok {
-						col := delCtx.tableDef.Cols[colIdx]
-						if _, exists := delCtx.updateColPosMap[colName]; exists || col.OnUpdate != nil {
-							skipDel = false
-							break
-						}
-					}
-				}
-				if skipDel {
-					continue
-				}
-			}
+			//if isUpdate {
+			//	skipDel := true
+			//	for _, colName := range indexdef.Parts {
+			//		if colIdx, ok := posMap[colName]; ok {
+			//			col := delCtx.tableDef.Cols[colIdx]
+			//			if _, exists := delCtx.updateColPosMap[colName]; exists || col.OnUpdate != nil {
+			//				skipDel = false
+			//				break
+			//			}
+			//		}
+			//	}
+			//	if skipDel {
+			//		continue
+			//	}
+			//}
 
 			if indexdef.TableExist && catalog.IsRegularIndexAlgo(indexdef.IndexAlgo) {
 				/********
