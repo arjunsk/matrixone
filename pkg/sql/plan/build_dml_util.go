@@ -189,6 +189,7 @@ func buildUpdatePlans(ctx CompilerContext, builder *QueryBuilder, bindCtx *BindC
 	}
 	lastNodeId = builder.appendNode(projectNode, bindCtx)
 	//append preinsert node
+	//TODO: modify here
 	lastNodeId = appendPreInsertNode(builder, bindCtx, updatePlanCtx.objRef, updatePlanCtx.tableDef, lastNodeId, true)
 
 	//append sink node
@@ -446,73 +447,72 @@ func buildDeletePlans(ctx CompilerContext, builder *QueryBuilder, bindCtx *BindC
 				} else {
 					lastNodeId = appendSinkScanNode(builder, bindCtx, delCtx.sourceStep)
 					lastNodeId, err = appendDeleteIvfTablePlan(builder, bindCtx, entriesObjRef, entriesTableDef, lastNodeId, delCtx.tableDef)
-					//TODO: verify with ouyuanning, if this is correct
-					entriesDeleteIdx = len(delCtx.tableDef.Cols) + delCtx.updateColLength // eg:- <id, embedding, row_id> + 0
+					entriesDeleteIdx = len(delCtx.tableDef.Cols) + delCtx.updateColLength // eg:- <id, embedding, row_id, <... update_col> > + 0/1
 					entriesTblPkPos = entriesDeleteIdx + 1                                // this is the compound primary key of the entries table
-					entriesTblPkTyp = entriesTableDef.Cols[3].Typ                         // 4rth column is the compound primary key
+					entriesTblPkTyp = entriesTableDef.Cols[3].Typ                         // 4'th column is the compound primary key <version,id, org_pk, cp_pk, row_id>
 				}
 
 				if isUpdate {
-					//// do it like simple update
-					//lastNodeId = appendSinkNode(builder, bindCtx, lastNodeId)
-					//newSourceStep := builder.appendStep(lastNodeId)
-					//// delete uk plan
-					//{
-					//	//TODO: verify with ouyuanning, if this is correct
-					//	//sink_scan -> lock -> delete
-					//	lastNodeId = appendSinkScanNode(builder, bindCtx, newSourceStep)
-					//	delNodeInfo := makeDeleteNodeInfo(builder.compCtx, entriesObjRef, entriesTableDef, entriesDeleteIdx, -1, false, entriesTblPkPos, entriesTblPkTyp, delCtx.lockTable, delCtx.partitionInfos)
-					//	lastNodeId, err = makeOneDeletePlan(builder, bindCtx, lastNodeId, delNodeInfo, false, true, false)
-					//	putDeleteNodeInfo(delNodeInfo)
-					//	if err != nil {
-					//		return err
-					//	}
-					//	builder.appendStep(lastNodeId)
-					//}
-					//// insert uk plan
-					//{
-					//	//TODO: verify with ouyuanning, if this is correct
-					//	lastNodeId = appendSinkScanNode(builder, bindCtx, newSourceStep)
-					//	lastProject := builder.qry.Nodes[lastNodeId].ProjectList
-					//	projectProjection := make([]*Expr, len(delCtx.tableDef.Cols))
-					//	for j, uCols := range delCtx.tableDef.Cols {
-					//		if nIdx, ok := delCtx.updateColPosMap[uCols.Name]; ok {
-					//			projectProjection[j] = lastProject[nIdx]
-					//		} else {
-					//			if uCols.Name == catalog.Row_ID {
-					//				// replace the origin table's row_id with unique table's row_id
-					//				projectProjection[j] = lastProject[len(lastProject)-2]
-					//			} else {
-					//				projectProjection[j] = lastProject[j]
-					//			}
-					//		}
-					//	}
-					//	projectNode := &Node{
-					//		NodeType:    plan.Node_PROJECT,
-					//		Children:    []int32{lastNodeId},
-					//		ProjectList: projectProjection,
-					//	}
-					//	lastNodeId = builder.appendNode(projectNode, bindCtx)
-					//
-					//	preUKStep, err := appendPreInsertSkVectorPlan(builder, bindCtx, delCtx.tableDef, lastNodeId, multiTableIndex, true, idxRefs, idxTableDefs)
-					//	if err != nil {
-					//		return err
-					//	}
-					//
-					//	insertEntriesTableDef := DeepCopyTableDef(entriesTableDef, false)
-					//	for _, col := range entriesTableDef.Cols {
-					//		if col.Name != catalog.Row_ID {
-					//			insertEntriesTableDef.Cols = append(insertEntriesTableDef.Cols, DeepCopyColDef(col))
-					//		}
-					//	}
-					//	err = makeInsertPlan(ctx, builder, bindCtx, entriesObjRef, insertEntriesTableDef,
-					//		1, preUKStep, false, false,
-					//		false, true, nil, nil,
-					//		false, false, nil)
-					//	if err != nil {
-					//		return err
-					//	}
-					//}
+					// do it like simple update
+					lastNodeId = appendSinkNode(builder, bindCtx, lastNodeId)
+					newSourceStep := builder.appendStep(lastNodeId)
+					// delete uk plan
+					{
+						//sink_scan -> lock -> delete
+						lastNodeId = appendSinkScanNode(builder, bindCtx, newSourceStep)
+						delNodeInfo := makeDeleteNodeInfo(builder.compCtx, entriesObjRef, entriesTableDef, entriesDeleteIdx, -1, false, entriesTblPkPos, entriesTblPkTyp, delCtx.lockTable, delCtx.partitionInfos)
+						lastNodeId, err = makeOneDeletePlan(builder, bindCtx, lastNodeId, delNodeInfo, false, true, false)
+						putDeleteNodeInfo(delNodeInfo)
+						if err != nil {
+							return err
+						}
+						builder.appendStep(lastNodeId)
+					}
+					// insert ivf_sk plan
+					{
+						//TODO: verify with ouyuanning, if this is correct
+						lastNodeId = appendSinkScanNode(builder, bindCtx, newSourceStep)
+						lastProject := builder.qry.Nodes[lastNodeId].ProjectList
+						projectProjection := make([]*Expr, len(delCtx.tableDef.Cols))
+						for j, uCols := range delCtx.tableDef.Cols {
+							if nIdx, ok := delCtx.updateColPosMap[uCols.Name]; ok {
+								projectProjection[j] = lastProject[nIdx]
+							} else {
+								if uCols.Name == catalog.Row_ID {
+									// replace the origin table's row_id with entry table's row_id
+									// it is the 2nd last column in the entry table join
+									projectProjection[j] = lastProject[len(lastProject)-2]
+								} else {
+									projectProjection[j] = lastProject[j]
+								}
+							}
+						}
+						projectNode := &Node{
+							NodeType:    plan.Node_PROJECT,
+							Children:    []int32{lastNodeId},
+							ProjectList: projectProjection,
+						}
+						lastNodeId = builder.appendNode(projectNode, bindCtx)
+
+						preUKStep, err := appendPreInsertSkVectorPlan(builder, bindCtx, delCtx.tableDef, lastNodeId, multiTableIndex, true, idxRefs, idxTableDefs)
+						if err != nil {
+							return err
+						}
+
+						insertEntriesTableDef := DeepCopyTableDef(entriesTableDef, false)
+						for _, col := range entriesTableDef.Cols {
+							if col.Name != catalog.Row_ID {
+								insertEntriesTableDef.Cols = append(insertEntriesTableDef.Cols, DeepCopyColDef(col))
+							}
+						}
+						err = makeInsertPlan(ctx, builder, bindCtx, entriesObjRef, insertEntriesTableDef,
+							1, preUKStep, false, false,
+							false, true, nil, nil,
+							false, false, nil)
+						if err != nil {
+							return err
+						}
+					}
 
 				} else {
 					// it's more simple for delete hidden unique table .so we append nodes after the plan. not recursive call buildDeletePlans
@@ -528,6 +528,7 @@ func buildDeletePlans(ctx CompilerContext, builder *QueryBuilder, bindCtx *BindC
 				return moerr.NewNYINoCtx("unsupported index algorithm %s", multiTableIndex.IndexAlgo)
 			}
 		}
+
 	}
 
 	// delete origin table
@@ -1058,7 +1059,6 @@ func makeInsertPlan(
 	multiTableIndexes := make(map[string]*MultiTableIndex)
 	if updateColLength == 0 {
 		for idx, indexdef := range tableDef.Indexes {
-
 			// append plan for the hidden tables of unique/secondary keys
 			if indexdef.TableExist && catalog.IsRegularIndexAlgo(indexdef.IndexAlgo) {
 
@@ -1865,7 +1865,8 @@ func haveSecondaryKey(tableDef *TableDef) bool {
 
 // makeDeleteNodeInfo Get `DeleteNode` based on TableDef
 func makeDeleteNodeInfo(ctx CompilerContext, objRef *ObjectRef, tableDef *TableDef,
-	deleteIdx int, partitionIdx int, addAffectedRows bool, pkPos int, pkTyp *Type, lockTable bool, partitionInfos map[uint64]*partSubTableInfo) *deleteNodeInfo {
+	deleteIdx int, partitionIdx int, addAffectedRows bool,
+	pkPos int, pkTyp *Type, lockTable bool, partitionInfos map[uint64]*partSubTableInfo) *deleteNodeInfo {
 	delNodeInfo := getDeleteNodeInfo()
 	delNodeInfo.objRef = objRef
 	delNodeInfo.tableDef = tableDef
@@ -2447,7 +2448,7 @@ func appendPreInsertSkVectorPlan(
 
 	// 5. sort by l2_distance(tbl.vector, centroids.centroid) limit 1
 	// project version, centroid_id, pk, serial(version,pk)
-	sortByL2DistanceId, err := makeSortByL2DistAndLimit1AndProject4(builder, bindCtx, crossJoinTblAndCentroidsID)
+	sortByL2DistanceId, err := makeSortByL2DistAndLimit1AndProject4(builder, bindCtx, crossJoinTblAndCentroidsID, lastNodeId, isUpdate)
 	if err != nil {
 		return -1, err
 	}
