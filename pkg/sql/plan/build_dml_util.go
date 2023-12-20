@@ -2497,7 +2497,6 @@ func appendPreInsertSkVectorPlan(
 
 	// 3. partition by centroids.version
 	projections := getProjectionByLastNode(builder, crossJoinTblAndCentroidsID)
-	lastTag := builder.genNewTag()
 	partitionBySortKeyId := builder.appendNode(&plan.Node{
 		NodeType:    plan.Node_PARTITION,
 		Children:    []int32{crossJoinTblAndCentroidsID},
@@ -2508,7 +2507,7 @@ func appendPreInsertSkVectorPlan(
 				Expr: projections[0], // centroids.version
 			},
 		},
-		BindingTags: []int32{lastTag},
+		//BindingTags: []int32{1},
 	}, bindCtx)
 
 	// 4. Window operation
@@ -2525,10 +2524,8 @@ func appendPreInsertSkVectorPlan(
 		return -1, err
 	}
 	windowId := builder.appendNode(&plan.Node{
-		NodeType:    plan.Node_WINDOW,
-		Children:    []int32{partitionBySortKeyId},
-		BindingTags: []int32{lastTag},
-		WindowIdx:   int32(0),
+		NodeType: plan.Node_WINDOW,
+		Children: []int32{partitionBySortKeyId},
 		WinSpecList: []*Expr{
 			{
 				Typ: makePlan2Type(&bigIntType),
@@ -2570,13 +2567,11 @@ func appendPreInsertSkVectorPlan(
 	if err != nil {
 		return -1, err
 	}
-
-	cpKeyCol, err := BindFuncExprImplByPlanExpr(builder.GetContext(), "serial", []*plan.Expr{projections[0], projections[2]})
 	filterId := builder.appendNode(&plan.Node{
 		NodeType:    plan.Node_FILTER,
 		Children:    []int32{windowId},
 		FilterList:  []*Expr{whereRowNumberEqOne},
-		ProjectList: []*Expr{projections[0], projections[1], projections[2], cpKeyCol},
+		ProjectList: []*Expr{projections[0], projections[1], projections[2]},
 	}, bindCtx)
 
 	// 6. Steps are similar to Secondary Index
