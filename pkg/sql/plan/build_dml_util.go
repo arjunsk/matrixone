@@ -2391,78 +2391,27 @@ func appendPreInsertSkVectorPlan(
 	idxRefs []*ObjectRef,
 	idxTableDefs []*TableDef) (int32, error) {
 
-	/*
-		### SQL
-		SELECT
-		`__mo_index_centroid_version`,
-		`__mo_index_centroid_id`,
-		id
-			from
-			(SELECT
-				`__mo_index_secondary_7ca2f73a-9f0b-11ee-8486-723e89f7b974`.`__mo_index_centroid_version`,
-				`__mo_index_secondary_7ca2f73a-9f0b-11ee-8486-723e89f7b974`.`__mo_index_centroid_id`,
-				tbl.id,
-				ROW_NUMBER() OVER (PARTITION BY `__mo_index_secondary_7ca2f73a-9f0b-11ee-8486-723e89f7b974`.`__mo_index_centroid_version`
-							   ORDER BY l2_distance(`__mo_index_secondary_7ca2f73a-9f0b-11ee-8486-723e89f7b974`.`__mo_index_centroid`, tbl.embedding) ) as `__mo_index_rn`
-			FROM tbl CROSS JOIN `__mo_index_secondary_7ca2f73a-9f0b-11ee-8486-723e89f7b974`)
-		WHERE `__mo_index_rn` = 1;
-
-		### The above SQL plan
-		+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-		| QUERY PLAN                                                                                                                                                                                                                                                           |
-		+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-		| Project                                                                                                                                                                                                                                                              |
-		|   ->  Window                                                                                                                                                                                                                                                         |
-		|         Window Function: row_number(); Partition By: __mo_index_secondary_7ca2f73a-9f0b-11ee-8486-723e89f7b974.__mo_index_centroid_version; Order By: l2_distance(__mo_index_secondary_7ca2f73a-9f0b-11ee-8486-723e89f7b974.__mo_index_centroid, tbl.embedding)      |
-		|         Filter Cond: (row_number() over (partition by __mo_index_secondary_7ca2f73a-9f0b-11ee-8486-723e89f7b974.__mo_index_centroid_version order by l2_distance(__mo_index_secondary_7ca2f73a-9f0b-11ee-8486-723e89f7b974.__mo_index_centroid, tbl.embedding)) = 1) |
-		|         ->  Partition                                                                                                                                                                                                                                                |
-		|               Sort Key: __mo_index_secondary_7ca2f73a-9f0b-11ee-8486-723e89f7b974.__mo_index_centroid_version INTERNAL                                                                                                                                               |
-		|               ->  Join                                                                                                                                                                                                                                               |
-		|                     Join Type: INNER                                                                                                                                                                                                                                 |
-		|                     ->  Table Scan on a.tbl                                                                                                                                                                                                                          |
-		|                     ->  Table Scan on a.__mo_index_secondary_7ca2f73a-9f0b-11ee-8486-723e89f7b974                                                                                                                                                                    |
-		+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-
-		### The Insert Plan
-
-		+-----------------------------------------------------------------------------------------------------------------------------------------------------+
-		| QUERY PLAN                                                                                                                                          |
-		+-----------------------------------------------------------------------------------------------------------------------------------------------------+
-		| Plan 0:                                                                                                                                             |
-		| Sink                                                                                                                                                |
-		|   ->  Lock                                                                                                                                          |
-		|         ->  PreInsert on a.tbl                                                                                                                      |
-		|               ->  Project                                                                                                                           |
-		|                     ->  Project                                                                                                                     |
-		|                           ->  Values Scan "*VALUES*"                                                                                                |
-		| Plan 1:                                                                                                                                             |
-		| Insert on a.tbl                                                                                                                                     |
-		|   ->  Sink Scan                                                                                                                                     |
-		|         DataSource: Plan 0                                                                                                                          |
-		| Plan 2:                                                                                                                                             |
-		| Insert on a.__mo_index_secondary_7ca2f74e-9f0b-11ee-8486-723e89f7b974                                                                               |
-		|   ->  Lock                                                                                                                                          |
-		|         ->  Filter                                                                                                                                  |
-		|               Filter Cond: (#[0,3] = 1)                                                                                                             |
-		|               ->  Window                                                                                                                            |
-		|                     Window Function: row_number(); Partition By: __mo_index_centroid_version; Order By: l2_distance(__mo_index_centroid, embedding) |
-		|                     ->  Partition                                                                                                                   |
-		|                           Sort Key: __mo_index_centroid_version INTERNAL                                                                            |
-		|                           ->  Join                                                                                                                  |
-		|                                 Join Type: INNER                                                                                                    |
-		|                                 ->  Sink Scan                                                                                                       |
-		|                                       DataSource: Plan 0                                                                                            |
-		|                                 ->  Table Scan on a.__mo_index_secondary_7ca2f73a-9f0b-11ee-8486-723e89f7b974                                       |
-		| Plan 3:                                                                                                                                             |
-		| Filter                                                                                                                                              |
-		|   Filter Cond: assert(isempty(id), cast(id AS VARCHAR), 'id', '')                                                                                   |
-		|   ->  Table Scan on a.tbl                                                                                                                           |
-		|         Filter Cond: (id = 10)                                                                                                                      |
-		|         Block Filter Cond: (id = 10)                                                                                                                |
-		+-----------------------------------------------------------------------------------------------------------------------------------------------------+
-		31 rows in set (0.03 sec)
-
-
+	/* 	The overall plan
+	----------------------------------------------------------------------------------------------------------------------------
+	| Insert on db.entries												                                                        |
+	|   ->  Lock                                                                                                                |
+	|         ->  Sort                                                                                                          |
+	|               Sort Key: l2_distance(__mo_index_centroid, embedding) ASC                                                   |
+	|               Limit: 1                                                                                                    |
+	|               ->  Join                                                                                                    |
+	|                     Join Type: INNER                                                                                      |
+	|                     ->  Sink Scan                                                                                         |
+	|                           DataSource: Plan 0                                                                              |
+	|                     ->  Filter                                                                                            |
+	|                           Filter Cond: (centroids.__mo_index_centroid_version = cast(meta.'__mo_index_value' as bigint))  |
+	|                           ->  Join                                                                                        |
+	|                                 Join Type: SINGLE                                                                         |
+	|                                 ->  Table Scan on db.centroids											                |
+	|                                 ->  Project                                                                               |
+	|                                       ->  Filter                                                                          |
+	|                                             Filter Cond: (__mo_index_key = cast('version' AS VARCHAR))                    |
+	|                                             ->  Table Scan on db.meta													    |
+	-----------------------------------------------------------------------------------------------------------------------------
 	*/
 
 	//1. get vector & pk column details
@@ -2487,83 +2436,35 @@ func appendPreInsertSkVectorPlan(
 		posOriginPk, typeOriginPk = getPkPos(tableDef, false)
 	}
 
-	// 2. cross join tbl(ie sink scan) and centroids
+	// 2. scan meta table to find the `current version` number
+	metaTblScanId, err := makeMetaTblScanWhereKeyEqVersion(builder, bindCtx, idxTableDefs, idxRefs)
+	if err != nil {
+		return -1, err
+	}
+
+	// 3. create a scan node for centroids table with version = `current version`
+	currVersionCentroidsTblScanId, err := makeCrossJoinCentroidsMetaForCurrVersion(builder, bindCtx,
+		idxTableDefs, idxRefs, metaTblScanId)
+	if err != nil {
+		return -1, err
+	}
+
+	// 4. create a cross join node for tbl and centroids
 	var leftChildTblId = lastNodeId
-	var rightChildCentroidsId = makeCentroidsTblScan(builder, bindCtx, idxTableDefs, idxRefs)
+	var rightChildCentroidsId = currVersionCentroidsTblScanId
 	var crossJoinTblAndCentroidsID = makeCrossJoinTblAndCentroids(builder, bindCtx, tableDef,
 		leftChildTblId, rightChildCentroidsId,
 		typeOriginPk, posOriginPk,
 		typeOriginVecColumn, posOriginVecColumn)
 
-	// 3. partition by centroids.version
-	projections := getProjectionByLastNode(builder, crossJoinTblAndCentroidsID)
-	partitionBySortKeyId := builder.appendNode(&plan.Node{
-		NodeType:    plan.Node_PARTITION,
-		Children:    []int32{crossJoinTblAndCentroidsID},
-		ProjectList: projections,
-		OrderBy: []*OrderBySpec{
-			{
-				Flag: plan.OrderBySpec_INTERNAL,
-				Expr: projections[0], // centroids.version
-			},
-		},
-	}, bindCtx)
-
-	// 4. Window operation
-	// Window Function: row_number();
-	// Partition By: centroids.version;
-	// Order By: l2_distance(centroids, tbl.embedding)
-	projections = getProjectionByLastNode(builder, partitionBySortKeyId)
-	l2Distance, err := BindFuncExprImplByPlanExpr(builder.GetContext(), "l2_distance", []*Expr{projections[3], projections[4]})
+	// 5. sort by l2_distance(tbl.vector, centroids.centroid) limit 1
+	// project version, centroid_id, pk, serial(version,pk)
+	sortByL2DistanceId, err := makeSortByL2DistAndLimit1AndProject4(builder, bindCtx, crossJoinTblAndCentroidsID, lastNodeId, isUpdate)
 	if err != nil {
 		return -1, err
 	}
-	rowNumber, err := BindFuncExprImplByPlanExpr(builder.GetContext(), "row_number", []*Expr{})
-	if err != nil {
-		return -1, err
-	}
-	windowId := builder.appendNode(&plan.Node{
-		NodeType: plan.Node_WINDOW,
-		Children: []int32{partitionBySortKeyId},
-		WinSpecList: []*Expr{
-			{
-				Typ: makePlan2Type(&bigIntType),
-				Expr: &plan.Expr_W{
-					W: &plan.WindowSpec{
-						WindowFunc:  rowNumber,
-						PartitionBy: []*Expr{projections[0]},
-						OrderBy: []*OrderBySpec{
-							{
-								Flag: plan.OrderBySpec_ASC,
-								Expr: l2Distance,
-							},
-						},
-						Name: "__mo_index_rn",
-					},
-				},
-			},
-		},
-		ProjectList: []*Expr{projections[0], projections[1], projections[2], rowNumber},
-	}, bindCtx)
 
-	// 5. Filter records where row_number() = 1
-	projections = getProjectionByLastNode(builder, windowId)
-	whereRowNumberEqOne, err := BindFuncExprImplByPlanExpr(builder.GetContext(), "=", []*Expr{
-		projections[3],
-		MakePlan2Int64ConstExprWithType(1),
-	})
-	if err != nil {
-		return -1, err
-	}
-	filterId := builder.appendNode(&plan.Node{
-		NodeType:    plan.Node_FILTER,
-		Children:    []int32{windowId},
-		FilterList:  []*Expr{whereRowNumberEqOne},
-		ProjectList: []*Expr{projections[0], projections[1], projections[2]},
-	}, bindCtx)
-
-	// 6. Steps are similar to Secondary Index
-	lastNodeId = filterId
+	lastNodeId = sortByL2DistanceId
 
 	if lockNodeId, ok := appendLockNode(
 		builder,

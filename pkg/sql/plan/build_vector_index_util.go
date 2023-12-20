@@ -24,57 +24,57 @@ var (
 	bigIntType = types.T_int64.ToType()
 )
 
-//func makeMetaTblScanWhereKeyEqVersion(builder *QueryBuilder, bindCtx *BindContext, indexTableDefs []*TableDef, idxRefs []*ObjectRef) (int32, error) {
-//	var metaTableScanId int32
-//
-//	scanNodeProjections := make([]*Expr, len(indexTableDefs[0].Cols))
-//	for colIdx, column := range indexTableDefs[0].Cols {
-//		scanNodeProjections[colIdx] = &plan.Expr{
-//			Typ: column.Typ,
-//			Expr: &plan.Expr_Col{
-//				Col: &plan.ColRef{
-//					ColPos: int32(colIdx),
-//					Name:   column.Name,
-//				},
-//			},
-//		}
-//	}
-//	metaTableScanId = builder.appendNode(&Node{
-//		NodeType:    plan.Node_TABLE_SCAN,
-//		Stats:       &plan.Stats{},
-//		ObjRef:      idxRefs[0],
-//		TableDef:    indexTableDefs[0],
-//		ProjectList: scanNodeProjections,
-//	}, bindCtx)
-//
-//	prevProjection := getProjectionByLastNode(builder, metaTableScanId)
-//	whereKeyEqVersion, err := BindFuncExprImplByPlanExpr(builder.GetContext(), "=", []*Expr{
-//		prevProjection[0],
-//		MakePlan2StringConstExprWithType("version"),
-//	})
-//	if err != nil {
-//		return -1, err
-//	}
-//	metaTableScanId = builder.appendNode(&Node{
-//		NodeType:   plan.Node_FILTER,
-//		Children:   []int32{metaTableScanId},
-//		FilterList: []*Expr{whereKeyEqVersion},
-//	}, bindCtx)
-//
-//	prevProjection = getProjectionByLastNode(builder, metaTableScanId)
-//	castValueColToBigInt, err := makePlan2CastExpr(builder.GetContext(), prevProjection[1], makePlan2Type(&bigIntType))
-//	if err != nil {
-//		return -1, err
-//	}
-//	metaTableScanId = builder.appendNode(&Node{
-//		NodeType:    plan.Node_PROJECT,
-//		Stats:       &plan.Stats{},
-//		Children:    []int32{metaTableScanId},
-//		ProjectList: []*Expr{castValueColToBigInt},
-//	}, bindCtx)
-//
-//	return metaTableScanId, nil
-//}
+func makeMetaTblScanWhereKeyEqVersion(builder *QueryBuilder, bindCtx *BindContext, indexTableDefs []*TableDef, idxRefs []*ObjectRef) (int32, error) {
+	var metaTableScanId int32
+
+	scanNodeProjections := make([]*Expr, len(indexTableDefs[0].Cols))
+	for colIdx, column := range indexTableDefs[0].Cols {
+		scanNodeProjections[colIdx] = &plan.Expr{
+			Typ: column.Typ,
+			Expr: &plan.Expr_Col{
+				Col: &plan.ColRef{
+					ColPos: int32(colIdx),
+					Name:   column.Name,
+				},
+			},
+		}
+	}
+	metaTableScanId = builder.appendNode(&Node{
+		NodeType:    plan.Node_TABLE_SCAN,
+		Stats:       &plan.Stats{},
+		ObjRef:      idxRefs[0],
+		TableDef:    indexTableDefs[0],
+		ProjectList: scanNodeProjections,
+	}, bindCtx)
+
+	prevProjection := getProjectionByLastNode(builder, metaTableScanId)
+	whereKeyEqVersion, err := BindFuncExprImplByPlanExpr(builder.GetContext(), "=", []*Expr{
+		prevProjection[0],
+		MakePlan2StringConstExprWithType("version"),
+	})
+	if err != nil {
+		return -1, err
+	}
+	metaTableScanId = builder.appendNode(&Node{
+		NodeType:   plan.Node_FILTER,
+		Children:   []int32{metaTableScanId},
+		FilterList: []*Expr{whereKeyEqVersion},
+	}, bindCtx)
+
+	prevProjection = getProjectionByLastNode(builder, metaTableScanId)
+	castValueColToBigInt, err := makePlan2CastExpr(builder.GetContext(), prevProjection[1], makePlan2Type(&bigIntType))
+	if err != nil {
+		return -1, err
+	}
+	metaTableScanId = builder.appendNode(&Node{
+		NodeType:    plan.Node_PROJECT,
+		Stats:       &plan.Stats{},
+		Children:    []int32{metaTableScanId},
+		ProjectList: []*Expr{castValueColToBigInt},
+	}, bindCtx)
+
+	return metaTableScanId, nil
+}
 
 func makeCentroidsTblScan(builder *QueryBuilder, bindCtx *BindContext, indexTableDefs []*TableDef, idxRefs []*ObjectRef) int32 {
 	scanNodeProjections := make([]*Expr, len(indexTableDefs[1].Cols))
@@ -99,164 +99,163 @@ func makeCentroidsTblScan(builder *QueryBuilder, bindCtx *BindContext, indexTabl
 	return centroidsScanId
 }
 
-//func makeCrossJoinCentroidsMetaForCurrVersion(builder *QueryBuilder, bindCtx *BindContext, indexTableDefs []*TableDef, idxRefs []*ObjectRef, metaTableScanId int32) (int32, error) {
-//	centroidsScanId := makeCentroidsTblScan(builder, bindCtx, indexTableDefs, idxRefs)
-//
-//	// 0: centroids.version
-//	// 1: centroids.centroid_id
-//	// 2: centroids.centroid
-//	// 3: meta.value i.e, current version
-//	joinProjections := getProjectionByLastNode(builder, centroidsScanId)[:3]
-//	joinProjections = append(joinProjections, &plan.Expr{
-//		Typ: makePlan2Type(&bigIntType),
-//		Expr: &plan.Expr_Col{
-//			Col: &plan.ColRef{
-//				RelPos: 1,
-//				ColPos: 0,
-//			},
-//		},
-//	})
-//
-//	joinMetaAndCentroidsId := builder.appendNode(&plan.Node{
-//		NodeType:    plan.Node_JOIN,
-//		JoinType:    plan.Node_SINGLE,
-//		Children:    []int32{centroidsScanId, metaTableScanId},
-//		ProjectList: joinProjections,
-//	}, bindCtx)
-//
-//	prevProjections := getProjectionByLastNode(builder, joinMetaAndCentroidsId)
-//	whereCentroidVersionEqCurrVersion, err := BindFuncExprImplByPlanExpr(builder.GetContext(), "=", []*Expr{
-//		prevProjections[0],
-//		prevProjections[3],
-//	})
-//	if err != nil {
-//		return -1, err
-//	}
-//	filterCentroidsForCurrVersionId := builder.appendNode(&plan.Node{
-//		NodeType:    plan.Node_FILTER,
-//		Children:    []int32{joinMetaAndCentroidsId},
-//		FilterList:  []*Expr{whereCentroidVersionEqCurrVersion},
-//		ProjectList: prevProjections[:3],
-//	}, bindCtx)
-//	return filterCentroidsForCurrVersionId, nil
-//}
+func makeCrossJoinCentroidsMetaForCurrVersion(builder *QueryBuilder, bindCtx *BindContext, indexTableDefs []*TableDef, idxRefs []*ObjectRef, metaTableScanId int32) (int32, error) {
+	centroidsScanId := makeCentroidsTblScan(builder, bindCtx, indexTableDefs, idxRefs)
+
+	// 0: centroids.version
+	// 1: centroids.centroid_id
+	// 2: centroids.centroid
+	// 3: meta.value i.e, current version
+	joinProjections := getProjectionByLastNode(builder, centroidsScanId)[:3]
+	joinProjections = append(joinProjections, &plan.Expr{
+		Typ: makePlan2Type(&bigIntType),
+		Expr: &plan.Expr_Col{
+			Col: &plan.ColRef{
+				RelPos: 1,
+				ColPos: 0,
+			},
+		},
+	})
+
+	joinMetaAndCentroidsId := builder.appendNode(&plan.Node{
+		NodeType:    plan.Node_JOIN,
+		JoinType:    plan.Node_SINGLE,
+		Children:    []int32{centroidsScanId, metaTableScanId},
+		ProjectList: joinProjections,
+	}, bindCtx)
+
+	prevProjections := getProjectionByLastNode(builder, joinMetaAndCentroidsId)
+	whereCentroidVersionEqCurrVersion, err := BindFuncExprImplByPlanExpr(builder.GetContext(), "=", []*Expr{
+		prevProjections[0],
+		prevProjections[3],
+	})
+	if err != nil {
+		return -1, err
+	}
+	filterCentroidsForCurrVersionId := builder.appendNode(&plan.Node{
+		NodeType:    plan.Node_FILTER,
+		Children:    []int32{joinMetaAndCentroidsId},
+		FilterList:  []*Expr{whereCentroidVersionEqCurrVersion},
+		ProjectList: prevProjections[:3],
+	}, bindCtx)
+	return filterCentroidsForCurrVersionId, nil
+}
 
 func makeCrossJoinTblAndCentroids(builder *QueryBuilder, bindCtx *BindContext, tableDef *TableDef,
 	leftChildTblId int32, rightChildCentroidsId int32,
 	typeOriginPk *Type, posOriginPk int,
 	typeOriginVecColumn *Type, posOriginVecColumn int) int32 {
 
-	projections := []*Expr{
-		{
-			// centroids.version
-			Typ: makePlan2Type(&bigIntType),
-			Expr: &plan.Expr_Col{
-				Col: &plan.ColRef{
-					RelPos: 1,
-					ColPos: 0,
-					Name:   catalog.SystemSI_IVFFLAT_TblCol_Centroids_version,
-				},
-			},
-		},
-		{ // centroids.centroid_id
-			Typ: makePlan2Type(&bigIntType),
-			Expr: &plan.Expr_Col{
-				Col: &plan.ColRef{
-					RelPos: 1,
-					ColPos: 1,
-					Name:   catalog.SystemSI_IVFFLAT_TblCol_Centroids_id,
-				},
-			},
-		},
-		{ // tbl.pk
-			Typ: typeOriginPk,
-			Expr: &plan.Expr_Col{
-				Col: &plan.ColRef{
-					RelPos: 0,
-					ColPos: int32(posOriginPk),
-					Name:   tableDef.Cols[posOriginPk].Name,
-				},
-			},
-		},
-		{ // centroids.centroid
-			Typ: typeOriginVecColumn,
-			Expr: &plan.Expr_Col{
-				Col: &plan.ColRef{
-					RelPos: 1,
-					ColPos: 2,
-					Name:   catalog.SystemSI_IVFFLAT_TblCol_Centroids_centroid,
-				},
-			},
-		},
-		{ // tbl.embedding
-			Typ: typeOriginVecColumn,
-			Expr: &plan.Expr_Col{
-				Col: &plan.ColRef{
-					RelPos: 0,
-					ColPos: int32(posOriginVecColumn),
-					Name:   tableDef.Cols[posOriginVecColumn].Name,
-				},
-			},
-		},
-	}
 	crossJoinTblAndCentroidsId := builder.appendNode(&plan.Node{
-		NodeType:    plan.Node_JOIN,
-		JoinType:    plan.Node_INNER,
-		Children:    []int32{leftChildTblId, rightChildCentroidsId},
-		ProjectList: projections,
+		NodeType: plan.Node_JOIN,
+		JoinType: plan.Node_INNER,
+		Children: []int32{leftChildTblId, rightChildCentroidsId},
+		ProjectList: []*Expr{
+			{
+				// centroids.version
+				Typ: makePlan2Type(&bigIntType),
+				Expr: &plan.Expr_Col{
+					Col: &plan.ColRef{
+						RelPos: 1,
+						ColPos: 0,
+						Name:   catalog.SystemSI_IVFFLAT_TblCol_Centroids_version,
+					},
+				},
+			},
+			{ // centroids.centroid_id
+				Typ: makePlan2Type(&bigIntType),
+				Expr: &plan.Expr_Col{
+					Col: &plan.ColRef{
+						RelPos: 1,
+						ColPos: 1,
+						Name:   catalog.SystemSI_IVFFLAT_TblCol_Centroids_id,
+					},
+				},
+			},
+			{ // tbl.pk
+				Typ: typeOriginPk,
+				Expr: &plan.Expr_Col{
+					Col: &plan.ColRef{
+						RelPos: 0,
+						ColPos: int32(posOriginPk),
+						Name:   tableDef.Cols[posOriginPk].Name,
+					},
+				},
+			},
+			{ // centroids.centroid
+				Typ: typeOriginVecColumn,
+				Expr: &plan.Expr_Col{
+					Col: &plan.ColRef{
+						RelPos: 1,
+						ColPos: 2,
+						Name:   catalog.SystemSI_IVFFLAT_TblCol_Centroids_centroid,
+					},
+				},
+			},
+			{ // tbl.embedding
+				Typ: typeOriginVecColumn,
+				Expr: &plan.Expr_Col{
+					Col: &plan.ColRef{
+						RelPos: 0,
+						ColPos: int32(posOriginVecColumn),
+						Name:   tableDef.Cols[posOriginVecColumn].Name,
+					},
+				},
+			},
+		},
 	}, bindCtx)
 
 	return crossJoinTblAndCentroidsId
 }
 
-//func makeSortByL2DistAndLimit1AndProject4(builder *QueryBuilder, bindCtx *BindContext,
-//	crossJoinTblAndCentroidsID int32, lastNodeId int32, isUpdate bool) (int32, error) {
-//
-//	// 0: centroids.version,
-//	// 1: centroids.centroid_id,
-//	// 2: tbl.pk,
-//	// 3: centroids.centroid,
-//	// 4: tbl.embedding
-//	// 5: entries.row_id (if update)
-//	var joinProjections = getProjectionByLastNode(builder, crossJoinTblAndCentroidsID)
-//	if isUpdate {
-//		lastProjection := builder.qry.Nodes[lastNodeId].ProjectList
-//		originRowIdIdx := len(lastProjection) - 1
-//		joinProjections = append(joinProjections, &plan.Expr{
-//			Typ: lastProjection[originRowIdIdx].Typ,
-//			Expr: &plan.Expr_Col{
-//				Col: &plan.ColRef{
-//					RelPos: 0,
-//					ColPos: int32(originRowIdIdx),
-//					Name:   catalog.Row_ID,
-//				},
-//			},
-//		})
-//	}
-//
-//	cpKeyCol, err := BindFuncExprImplByPlanExpr(builder.GetContext(), "serial", []*plan.Expr{joinProjections[0], joinProjections[2]})
-//	if err != nil {
-//		return -1, err
-//	}
-//
-//	l2Distance, err := BindFuncExprImplByPlanExpr(builder.GetContext(), "l2_distance", []*Expr{joinProjections[3], joinProjections[4]})
-//	if err != nil {
-//		return -1, err
-//	}
-//
-//	sortByL2DistId := builder.appendNode(&plan.Node{
-//		NodeType: plan.Node_SORT,
-//		Children: []int32{crossJoinTblAndCentroidsID},
-//		// version, centroid_id, pk, serial(version,pk)
-//		ProjectList: []*Expr{joinProjections[0], joinProjections[1], joinProjections[2], cpKeyCol},
-//		OrderBy: []*plan.OrderBySpec{
-//			{
-//				Flag: plan.OrderBySpec_ASC,
-//				Expr: l2Distance,
-//			},
-//		},
-//		Limit: makePlan2Int64ConstExprWithType(1),
-//	}, bindCtx)
-//
-//	return sortByL2DistId, nil
-//}
+func makeSortByL2DistAndLimit1AndProject4(builder *QueryBuilder, bindCtx *BindContext,
+	crossJoinTblAndCentroidsID int32, lastNodeId int32, isUpdate bool) (int32, error) {
+
+	// 0: centroids.version,
+	// 1: centroids.centroid_id,
+	// 2: tbl.pk,
+	// 3: centroids.centroid,
+	// 4: tbl.embedding
+	// 5: entries.row_id (if update)
+	var joinProjections = getProjectionByLastNode(builder, crossJoinTblAndCentroidsID)
+	if isUpdate {
+		lastProjection := builder.qry.Nodes[lastNodeId].ProjectList
+		originRowIdIdx := len(lastProjection) - 1
+		joinProjections = append(joinProjections, &plan.Expr{
+			Typ: lastProjection[originRowIdIdx].Typ,
+			Expr: &plan.Expr_Col{
+				Col: &plan.ColRef{
+					RelPos: 0,
+					ColPos: int32(originRowIdIdx),
+					Name:   catalog.Row_ID,
+				},
+			},
+		})
+	}
+
+	cpKeyCol, err := BindFuncExprImplByPlanExpr(builder.GetContext(), "serial", []*plan.Expr{joinProjections[0], joinProjections[2]})
+	if err != nil {
+		return -1, err
+	}
+
+	l2Distance, err := BindFuncExprImplByPlanExpr(builder.GetContext(), "l2_distance", []*Expr{joinProjections[3], joinProjections[4]})
+	if err != nil {
+		return -1, err
+	}
+
+	sortByL2DistId := builder.appendNode(&plan.Node{
+		NodeType: plan.Node_SORT,
+		Children: []int32{crossJoinTblAndCentroidsID},
+		// version, centroid_id, pk, serial(version,pk)
+		ProjectList: []*Expr{joinProjections[0], joinProjections[1], joinProjections[2], cpKeyCol},
+		OrderBy: []*plan.OrderBySpec{
+			{
+				Flag: plan.OrderBySpec_ASC,
+				Expr: l2Distance,
+			},
+		},
+		Limit: makePlan2Int64ConstExprWithType(1),
+	}, bindCtx)
+
+	return sortByL2DistId, nil
+}
