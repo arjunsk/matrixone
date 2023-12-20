@@ -2534,8 +2534,8 @@ func appendPreInsertSkVectorPlan(
 				Typ: makePlan2Type(&bigIntType),
 				Expr: &plan.Expr_W{
 					W: &plan.WindowSpec{
-						WindowFunc:  rowNumber,
-						PartitionBy: []*Expr{projections[0]}, // centroids.version
+						WindowFunc: rowNumber,
+						//PartitionBy: []*Expr{projections[0]}, // centroids.version
 						OrderBy: []*OrderBySpec{
 							{
 								Flag: plan.OrderBySpec_ASC,
