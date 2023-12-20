@@ -2507,6 +2507,7 @@ func appendPreInsertSkVectorPlan(
 				Expr: projections[0], // centroids.version
 			},
 		},
+		//BindingTags: []int32{1},
 	}, bindCtx)
 
 	// 4. Window operation
@@ -2530,20 +2531,31 @@ func appendPreInsertSkVectorPlan(
 				Typ: makePlan2Type(&bigIntType),
 				Expr: &plan.Expr_W{
 					W: &plan.WindowSpec{
-						WindowFunc:  rowNumber,
-						PartitionBy: []*Expr{projections[0]},
+						WindowFunc: rowNumber,
+						//PartitionBy: []*Expr{projections[0]}, // centroids.version
 						OrderBy: []*OrderBySpec{
 							{
 								Flag: plan.OrderBySpec_ASC,
 								Expr: l2Distance,
 							},
 						},
-						Name: "__mo_index_rn",
+						Frame: &plan.FrameClause{
+							Type: plan.FrameClause_RANGE,
+							Start: &plan.FrameBound{
+								Type:      plan.FrameBound_PRECEDING,
+								UnBounded: true,
+							},
+							End: &plan.FrameBound{
+								Type:      plan.FrameBound_CURRENT_ROW,
+								UnBounded: false,
+							},
+						},
+						Name: "row_number",
 					},
 				},
 			},
 		},
-		ProjectList: []*Expr{projections[0], projections[1], projections[2], rowNumber},
+		ProjectList: []*Expr{projections[0], projections[1], projections[2], makePlan2Int64ConstExprWithType(1)},
 	}, bindCtx)
 
 	// 5. Filter records where row_number() = 1
