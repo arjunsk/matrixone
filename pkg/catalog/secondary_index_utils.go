@@ -57,6 +57,7 @@ func IsIvfIndexAlgo(algo string) bool {
 }
 
 // ------------------------[START] IndexAlgoParams------------------------
+
 const (
 	IndexAlgoParamLists     = "lists"
 	IndexAlgoParamOpType    = "op_type"
@@ -67,6 +68,7 @@ const (
 
 const (
 	KmeansSamplePerList = 50
+	MaxIVFFlatVersion   = 3
 )
 
 // CalcSampleCount is used to calculate the sample count for Kmeans index.
@@ -180,6 +182,9 @@ func indexParamsToMap(def *tree.Index) (map[string]string, error) {
 		} else {
 			res[IndexAlgoParamOpType] = IndexAlgoParamOpType_l2 // set l2 as default
 		}
+	default:
+		return nil, moerr.NewInternalErrorNoCtx("invalid index type. not of type '%s' or '%s'",
+			tree.INDEX_TYPE_BTREE, tree.INDEX_TYPE_IVFFLAT)
 	}
 	return res, nil
 }
