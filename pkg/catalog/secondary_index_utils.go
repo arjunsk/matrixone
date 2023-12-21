@@ -183,8 +183,7 @@ func indexParamsToMap(def *tree.Index) (map[string]string, error) {
 			res[IndexAlgoParamOpType] = IndexAlgoParamOpType_l2 // set l2 as default
 		}
 	default:
-		return nil, moerr.NewInternalErrorNoCtx("invalid index type. not of type '%s' or '%s'",
-			tree.INDEX_TYPE_BTREE, tree.INDEX_TYPE_IVFFLAT)
+		return nil, moerr.NewInternalErrorNoCtx("invalid index type")
 	}
 	return res, nil
 }
