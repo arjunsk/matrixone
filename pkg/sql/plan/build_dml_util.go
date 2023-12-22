@@ -303,7 +303,26 @@ func buildDeletePlans(ctx CompilerContext, builder *QueryBuilder, bindCtx *BindC
 						lastProject := builder.qry.Nodes[lastNodeId].ProjectList
 						projectProjection := make([]*Expr, len(delCtx.tableDef.Cols))
 						for j, uCols := range delCtx.tableDef.Cols {
-							if nIdx, ok := delCtx.updateColPosMap[uCols.Name]; ok {
+							if uCols.Name == catalog.CPrimaryKeyColName && delCtx.updatePkCol {
+								// Update CP primary key
+								// Similar to this logic:
+								// https://github.com/arjunsk/matrixone/commit/22de98498843c18d5927cb5f7288a3fbd298c16d#r135544848
+								expressionList := make([]*Expr, 0, len(delCtx.tableDef.Pkey.Names))
+								for _, part := range delCtx.tableDef.Pkey.Names {
+									if nIdx, ok := delCtx.updateColPosMap[part]; ok {
+										expressionList = append(expressionList, lastProject[nIdx])
+									} else {
+										expressionList = append(expressionList, lastProject[posMap[part]])
+									}
+								}
+								projectProjection[j], err = bindFuncExprImplByPlanExpr(builder.GetContext(), "serial", expressionList)
+								if err != nil {
+									return err
+								}
+								// Ideally this should be added as a new expr in the projectProjection.
+								// I am not sure which is the best place to do that.
+
+							} else if nIdx, ok := delCtx.updateColPosMap[uCols.Name]; ok {
 								projectProjection[j] = lastProject[nIdx]
 							} else {
 								if uCols.Name == catalog.Row_ID {
@@ -509,6 +528,13 @@ func buildDeletePlans(ctx CompilerContext, builder *QueryBuilder, bindCtx *BindC
 							}
 						}
 					}
+					/*
+						// TODO: Ideally we should have a better way to the updatePK flag.
+						if updatePk && childTableDef.Pkey.PkeyColName != catalog.CPrimaryKeyColName {
+							updateChildColExpr[cpKey] = new()                // create a new serial(index parts) expr
+							updateChildColPosMap[cpKey] = childColLength + i // add the new __mo_cp_key pos here
+						}
+					*/
 
 					for idx, col := range childTableDef.Cols {
 						if col.Name != catalog.Row_ID && col.Name != catalog.CPrimaryKeyColName {
