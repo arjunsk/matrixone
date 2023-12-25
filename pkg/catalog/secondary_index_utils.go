@@ -67,6 +67,7 @@ const (
 
 const (
 	KmeansSamplePerList = 50
+	MaxIVFFlatVersion   = 3
 )
 
 // CalcSampleCount is used to calculate the sample count for Kmeans index.
