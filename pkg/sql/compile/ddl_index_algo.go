@@ -78,9 +78,8 @@ func (s *Scope) createAndInsertForUniqueOrRegularIndexTable(c *Compile, indexDef
 func (s *Scope) handleIndexAndPKColCount(c *Compile, indexDef *plan.IndexDef, qryDatabase string, originalTableDef *plan.TableDef) (int64, error) {
 
 	indexColumnName := indexDef.Parts[0]
-	countTotalSql := fmt.Sprintf("select count(`%s`), count(`%s`) from `%s`.`%s`;",
+	countTotalSql := fmt.Sprintf("select count(`%s`) from `%s`.`%s`;",
 		indexColumnName,
-		originalTableDef.Pkey.PkeyColName,
 		qryDatabase,
 		originalTableDef.Name)
 	rs, err := c.runSqlWithResult(countTotalSql)
@@ -89,17 +88,11 @@ func (s *Scope) handleIndexAndPKColCount(c *Compile, indexDef *plan.IndexDef, qr
 	}
 
 	var totalCnt int64
-	var pkeyCnt int64
 	rs.ReadRows(func(cols []*vector.Vector) bool {
 		totalCnt = executor.GetFixedRows[int64](cols[0])[0]
-		pkeyCnt = executor.GetFixedRows[int64](cols[1])[0]
 		return false
 	})
 	rs.Close()
-
-	if totalCnt != pkeyCnt {
-		return 0, moerr.NewInvalidInputNoCtx("vecfxx column contains nulls.")
-	}
 
 	return totalCnt, nil
 }
@@ -139,7 +132,21 @@ func (s *Scope) handleIvfIndexMetaTable(c *Compile, indexDef *plan.IndexDef, qry
 func (s *Scope) handleIvfIndexCentroidsTable(c *Compile, indexDef *plan.IndexDef,
 	qryDatabase string, originalTableDef *plan.TableDef, totalCnt int64, metaTableName string) error {
 
-	if totalCnt == 0 {
+	// 1.a algo params
+	params, err := catalog.IndexParamsStringToMap(indexDef.IndexAlgoParams)
+	if err != nil {
+		return err
+	}
+	centroidParamsLists, err := strconv.Atoi(params[catalog.IndexAlgoParamLists])
+	if err != nil {
+		return err
+	}
+	centroidParamsDistFn := catalog.ToLower(params[catalog.IndexAlgoParamOpType])
+	kmeansInitType := "kmeansplusplus"
+
+	// 1.b init centroids table with default centroid, if centroids are not enough.
+	// NOTE: we can run re-index to improve the centroid quality.
+	if totalCnt == 0 || totalCnt < int64(centroidParamsLists) {
 		initSQL := fmt.Sprintf("insert into `%s`.`%s` (`%s`, `%s`, `%s`) VALUES(0,1,NULL);",
 			qryDatabase,
 			indexDef.IndexTableName,
@@ -154,20 +161,8 @@ func (s *Scope) handleIvfIndexCentroidsTable(c *Compile, indexDef *plan.IndexDef
 		return nil
 	}
 
-	// 1. algo params
-	params, err := catalog.IndexParamsStringToMap(indexDef.IndexAlgoParams)
-	if err != nil {
-		return err
-	}
-	centroidParamsLists, err := strconv.Atoi(params[catalog.IndexAlgoParamLists])
-	if err != nil {
-		return err
-	}
-	centroidParamsDistFn := catalog.ToLower(params[catalog.IndexAlgoParamOpType])
-	kmeansInitType := "kmeansplusplus"
-
 	// 2. Sampling SQL Logic
-	var sampleCnt = catalog.CalcSampleCount(int64(centroidParamsLists), totalCnt)
+	sampleCnt := catalog.CalcSampleCount(int64(centroidParamsLists), totalCnt)
 	indexColumnName := indexDef.Parts[0]
 	sampleSQL := fmt.Sprintf("(select sample(`%s`, %d rows) as `%s` from `%s`.`%s`)",
 		indexColumnName,
@@ -283,16 +278,6 @@ func (s *Scope) handleIvfIndexEntriesTable(c *Compile, indexDef *plan.IndexDef, 
 		centroidsTableName,
 	)
 
-	// 5. non-null original table rows
-	nonNullOriginalTableRowsSql := fmt.Sprintf("(select %s, %s from `%s`.`%s` where `%s` is not null) `%s`",
-		originalTblPkColsCommaSeperated,
-		indexColumnName,
-		qryDatabase,
-		originalTableDef.Name,
-		indexColumnName,
-		originalTableDef.Name,
-	)
-
 	/*
 		Sample SQL:
 		SELECT `__mo_index_entries_tbl`.`__mo_index_centroid_version_fk`,
@@ -339,7 +324,7 @@ func (s *Scope) handleIvfIndexEntriesTable(c *Compile, indexDef *plan.IndexDef, 
 		originalTableDef.Name,
 		indexColumnName,
 
-		nonNullOriginalTableRowsSql,
+		originalTableDef.Name,
 		centroidsTableForCurrentVersionSql,
 	)
 
