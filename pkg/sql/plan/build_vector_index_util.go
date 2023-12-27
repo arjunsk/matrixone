@@ -208,15 +208,13 @@ func makeCrossJoinTblAndCentroids(builder *QueryBuilder, bindCtx *BindContext, t
 	return crossJoinTblAndCentroidsId
 }
 
-func makeSortByL2DistAndLimit1AndProject4(builder *QueryBuilder, bindCtx *BindContext,
+func makeFinalProjectWithCPAndOptionalRowId(builder *QueryBuilder, bindCtx *BindContext,
 	crossJoinTblAndCentroidsID int32, lastNodeId int32, isUpdate bool) (int32, error) {
 
 	// 0: centroids.version,
 	// 1: centroids.centroid_id,
 	// 2: tbl.pk,
-	// 3: centroids.centroid,
-	// 4: tbl.embedding
-	// 5: entries.row_id (if update)
+	// 3: entries.row_id (if update)
 	var joinProjections = getProjectionByLastNode(builder, crossJoinTblAndCentroidsID)
 	if isUpdate {
 		lastProjection := builder.qry.Nodes[lastNodeId].ProjectList
@@ -238,24 +236,12 @@ func makeSortByL2DistAndLimit1AndProject4(builder *QueryBuilder, bindCtx *BindCo
 		return -1, err
 	}
 
-	l2Distance, err := BindFuncExprImplByPlanExpr(builder.GetContext(), "l2_distance", []*Expr{joinProjections[3], joinProjections[4]})
-	if err != nil {
-		return -1, err
-	}
-
-	sortByL2DistId := builder.appendNode(&plan.Node{
-		NodeType: plan.Node_SORT,
+	finalProjectId := builder.appendNode(&plan.Node{
+		NodeType: plan.Node_PROJECT,
 		Children: []int32{crossJoinTblAndCentroidsID},
 		// version, centroid_id, pk, serial(version,pk)
 		ProjectList: []*Expr{joinProjections[0], joinProjections[1], joinProjections[2], cpKeyCol},
-		OrderBy: []*plan.OrderBySpec{
-			{
-				Flag: plan.OrderBySpec_ASC,
-				Expr: l2Distance,
-			},
-		},
-		Limit: makePlan2Int64ConstExprWithType(1),
 	}, bindCtx)
 
-	return sortByL2DistId, nil
+	return finalProjectId, nil
 }

@@ -2458,6 +2458,7 @@ func appendPreInsertSkVectorPlan(
 	}
 
 	// 4. create a cross join node for tbl and centroids
+	// Projections: centroids.version, centroids.centroid_id, tbl.pk, centroids.centroid, tbl.embedding
 	var leftChildTblId = lastNodeId
 	var rightChildCentroidsId = currVersionCentroidsTblScanId
 	var crossJoinTblAndCentroidsID = makeCrossJoinTblAndCentroids(builder, bindCtx, tableDef,
@@ -2465,13 +2466,21 @@ func appendPreInsertSkVectorPlan(
 		typeOriginPk, posOriginPk,
 		typeOriginVecColumn, posOriginVecColumn)
 
-	// 5. sort by l2_distance(tbl.vector, centroids.centroid) limit 1
-	// project version, centroid_id, pk, serial(version,pk)
-	sortByL2DistanceId, err := makeSortByL2DistAndLimit1AndProject4(builder, bindCtx, crossJoinTblAndCentroidsID, lastNodeId, isUpdate)
+	// 5. partition by tbl.pk
+	// 6. Window operation
+	// 7. Filter records where row_number() = 1
+	filterId, err := partitionByWindowAndFilterByRowNum(builder, bindCtx, crossJoinTblAndCentroidsID, err)
 	if err != nil {
 		return -1, err
 	}
-	lastNodeId = sortByL2DistanceId
+
+	// 8. Final project: centroids.version, centroids.centroid_id, tbl.pk, cp_col
+	projectId, err := makeFinalProjectWithCPAndOptionalRowId(builder, bindCtx, filterId, lastNodeId, isUpdate)
+	if err != nil {
+		return -1, err
+	}
+
+	lastNodeId = projectId
 
 	if lockNodeId, ok := appendLockNode(
 		builder,
@@ -2491,6 +2500,102 @@ func appendPreInsertSkVectorPlan(
 	sourceStep := builder.appendStep(lastNodeId)
 
 	return sourceStep, nil
+}
+
+func partitionByWindowAndFilterByRowNum(builder *QueryBuilder, bindCtx *BindContext, crossJoinTblAndCentroidsID int32, err error) (int32, error) {
+	// 5. partition by tbl.pk
+	projections := getProjectionByLastNode(builder, crossJoinTblAndCentroidsID)
+	lastTag := builder.genNewTag()
+	partitionBySortKeyId := builder.appendNode(&plan.Node{
+		NodeType:    plan.Node_PARTITION,
+		Children:    []int32{crossJoinTblAndCentroidsID},
+		ProjectList: projections,
+		OrderBy: []*OrderBySpec{
+			{
+				Flag: plan.OrderBySpec_INTERNAL,
+				Expr: projections[2], // tbl.pk
+			},
+		},
+		BindingTags: []int32{lastTag},
+	}, bindCtx)
+
+	// 6. Window operation
+	// Window Function: row_number();
+	// Partition By: tbl.pk;
+	// Order By: l2_distance(tbl.embedding, centroids.centroid)
+	projections = getProjectionByLastNode(builder, partitionBySortKeyId)
+	l2Distance, err := BindFuncExprImplByPlanExpr(builder.GetContext(), "l2_distance", []*Expr{projections[3], projections[4]})
+	if err != nil {
+		return -1, err
+	}
+	rowNumber, err := BindFuncExprImplByPlanExpr(builder.GetContext(), "row_number", []*Expr{})
+	if err != nil {
+		return -1, err
+	}
+	winSpec := &plan.Expr{
+		Typ: makePlan2Type(&bigIntType),
+		Expr: &plan.Expr_W{
+			W: &plan.WindowSpec{
+				WindowFunc:  rowNumber,
+				PartitionBy: []*Expr{projections[2]}, // tbl.pk
+				OrderBy: []*OrderBySpec{
+					{
+						Flag: plan.OrderBySpec_ASC,
+						Expr: l2Distance,
+					},
+				},
+				Frame: &plan.FrameClause{
+					Type: plan.FrameClause_RANGE,
+					Start: &plan.FrameBound{
+						Type:      plan.FrameBound_PRECEDING,
+						UnBounded: true,
+					},
+					End: &plan.FrameBound{
+						Type:      plan.FrameBound_CURRENT_ROW,
+						UnBounded: false,
+					},
+				},
+				Name: "row_number",
+			},
+		},
+	}
+	rowNumberCol := &Expr{
+		Typ: makePlan2Type(&bigIntType),
+		Expr: &plan.Expr_Col{
+			Col: &plan.ColRef{
+				// For WindowNode：
+				// Rel = -1 means this column from window partition
+				RelPos: -1,
+				ColPos: 5, // {version, centroid_id, org_pk, cp_col, row_id, row_number}
+			},
+		},
+	}
+	windowId := builder.appendNode(&plan.Node{
+		NodeType:    plan.Node_WINDOW,
+		Children:    []int32{partitionBySortKeyId},
+		BindingTags: []int32{lastTag},
+		WindowIdx:   int32(0),
+		WinSpecList: []*Expr{winSpec},
+		ProjectList: []*Expr{projections[0], projections[1], projections[2], rowNumberCol},
+	}, bindCtx)
+
+	// 7. Filter records where row_number() = 1
+	projections = getProjectionByLastNode(builder, windowId)
+	whereRowNumberEqOne, err := BindFuncExprImplByPlanExpr(builder.GetContext(), "=", []*Expr{
+		projections[3],
+		MakePlan2Int64ConstExprWithType(1),
+	})
+	if err != nil {
+		return -1, err
+	}
+
+	filterId := builder.appendNode(&plan.Node{
+		NodeType:    plan.Node_FILTER,
+		Children:    []int32{windowId},
+		FilterList:  []*Expr{whereRowNumberEqOne},
+		ProjectList: []*Expr{projections[0], projections[1], projections[2]},
+	}, bindCtx)
+	return filterId, nil
 }
 
 func recomputeMoCPKeyViaProjection(builder *QueryBuilder, bindCtx *BindContext, tableDef *TableDef, lastNodeId int32, posOriginPk int) int32 {
