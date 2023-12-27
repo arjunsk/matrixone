@@ -139,6 +139,21 @@ func (s *Scope) handleIvfIndexMetaTable(c *Compile, indexDef *plan.IndexDef, qry
 func (s *Scope) handleIvfIndexCentroidsTable(c *Compile, indexDef *plan.IndexDef,
 	qryDatabase string, originalTableDef *plan.TableDef, totalCnt int64, metaTableName string) error {
 
+	if totalCnt == 0 {
+		initSQL := fmt.Sprintf("insert into `%s`.`%s` (`%s`, `%s`, `%s`) VALUES(0,1,NULL);",
+			qryDatabase,
+			indexDef.IndexTableName,
+			catalog.SystemSI_IVFFLAT_TblCol_Centroids_version,
+			catalog.SystemSI_IVFFLAT_TblCol_Centroids_id,
+			catalog.SystemSI_IVFFLAT_TblCol_Centroids_centroid,
+		)
+		err := c.runSql(initSQL)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
 	// 1. algo params
 	params, err := catalog.IndexParamsStringToMap(indexDef.IndexAlgoParams)
 	if err != nil {
