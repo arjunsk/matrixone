@@ -89,6 +89,10 @@ func CalcSampleCount(lists, totalCnt int64) (sampleCnt int64) {
 
 	return sampleCnt
 }
+func CalcSamplePercent(lists, totalCnt int64) (samplePercent float64) {
+	sampleCnt := CalcSampleCount(lists, totalCnt)
+	return (float64(sampleCnt) / float64(totalCnt)) * 100
+}
 
 /* 1. ToString Functions */
 

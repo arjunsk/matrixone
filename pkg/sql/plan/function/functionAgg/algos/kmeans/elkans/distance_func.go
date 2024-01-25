@@ -22,9 +22,17 @@ import (
 
 // L2Distance is used for L2Distance distance in Euclidean Kmeans.
 func L2Distance(v1, v2 *mat.VecDense) float64 {
+	//TODO: not all gonum functions are optimized for vector ops.
 	diff := mat.NewVecDense(v1.Len(), nil)
 	diff.SubVec(v1, v2)
 	return mat.Norm(diff, 2)
+
+	//var sum float64
+	//for i := 0; i < v1.Len(); i++ {
+	//	diff := v1.At(i, 0) - v2.At(i, 0)
+	//	sum += diff * diff
+	//}
+	//return math.Sqrt(sum)
 }
 
 //// SphericalDistance is used for InnerProduct and CosineDistance in Spherical Kmeans.

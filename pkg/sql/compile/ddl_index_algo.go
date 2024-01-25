@@ -143,7 +143,7 @@ func (s *Scope) handleIvfIndexCentroidsTable(c *Compile, indexDef *plan.IndexDef
 	}
 	centroidParamsDistFn := catalog.ToLower(params[catalog.IndexAlgoParamOpType])
 	kmeansInitType := "kmeansplusplus"
-	kmeansNormalize := "true"
+	kmeansNormalize := "false"
 
 	// 1.b init centroids table with default centroid, if centroids are not enough.
 	// NOTE: we can run re-index to improve the centroid quality.
@@ -163,11 +163,11 @@ func (s *Scope) handleIvfIndexCentroidsTable(c *Compile, indexDef *plan.IndexDef
 	}
 
 	// 2. Sampling SQL Logic
-	sampleCnt := catalog.CalcSampleCount(int64(centroidParamsLists), totalCnt)
+	samplePercent := catalog.CalcSamplePercent(int64(centroidParamsLists), totalCnt)
 	indexColumnName := indexDef.Parts[0]
-	sampleSQL := fmt.Sprintf("(select sample(`%s`, %d rows) as `%s` from `%s`.`%s`)",
+	sampleSQL := fmt.Sprintf("(select sample(`%s`, %f percent) as `%s` from `%s`.`%s`)",
 		indexColumnName,
-		sampleCnt,
+		samplePercent,
 		indexColumnName,
 		qryDatabase,
 		originalTableDef.Name,
@@ -227,6 +227,8 @@ func (s *Scope) handleIvfIndexCentroidsTable(c *Compile, indexDef *plan.IndexDef
 func (s *Scope) handleIvfIndexEntriesTable(c *Compile, indexDef *plan.IndexDef, qryDatabase string, originalTableDef *plan.TableDef,
 	metadataTableName string,
 	centroidsTableName string) error {
+	// 0. Is Normalized or not
+	shouldIndexColBeNormalized := false
 
 	// 1. algo params
 	params, err := catalog.IndexParamsStringToMap(indexDef.IndexAlgoParams)
@@ -280,6 +282,14 @@ func (s *Scope) handleIvfIndexEntriesTable(c *Compile, indexDef *plan.IndexDef, 
 		centroidsTableName,
 	)
 
+	// 4.1 entries column (normalized or not)
+	indexColStr := ""
+	if shouldIndexColBeNormalized {
+		indexColStr = "normalize_l2(`%s`.%s)"
+	} else {
+		indexColStr = "`%s`.%s"
+	}
+
 	/*
 		Sample SQL:
 		INSERT INTO `a`.`entries_tbl`(`__mo_index_centroid_fk_version`, `__mo_index_centroid_fk_id`, `__mo_index_pri_col`)
@@ -293,7 +303,7 @@ func (s *Scope) handleIvfIndexEntriesTable(c *Compile, indexDef *plan.IndexDef, 
 	// 5. final SQL
 	mappingSQL := fmt.Sprintf("%s "+
 		"select `%s`.`__mo_index_centroid_version`, "+
-		"serial_extract( min( serial_full( %s(`%s`.`%s`, normalize_l2(`%s`.%s)), `%s`.`%s`)), 1 as bigint), "+
+		"serial_extract( min( serial_full( %s(`%s`.`%s`, "+indexColStr+"), `%s`.`%s`)), 1 as bigint), "+
 		"%s "+
 		"from %s CROSS JOIN %s group by %s;",
 		insertSQL,
