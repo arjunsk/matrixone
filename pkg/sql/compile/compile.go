@@ -404,9 +404,6 @@ func (c *Compile) Run(_ uint64) (result *util2.RunResult, err error) {
 		s.SetOperatorInfoRecursively(c.allocOperatorID)
 	}
 
-	if c.proc.TxnOperator != nil {
-		writeOffset = c.proc.TxnOperator.GetWorkspace().WriteOffset()
-	}
 	result = &util2.RunResult{}
 	var span trace.Span
 	var runC *Compile // compile structure for rerun.
@@ -447,6 +444,9 @@ func (c *Compile) Run(_ uint64) (result *util2.RunResult, err error) {
 	for {
 		if err = runC.runOnce(); err == nil {
 			break
+		}
+		if c.proc.TxnOperator != nil {
+			writeOffset = c.proc.TxnOperator.GetWorkspace().WriteOffset()
 		}
 
 		c.fatalLog(retryTimes, err)
