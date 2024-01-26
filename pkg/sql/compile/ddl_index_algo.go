@@ -142,8 +142,8 @@ func (s *Scope) handleIvfIndexCentroidsTable(c *Compile, indexDef *plan.IndexDef
 		return err
 	}
 	centroidParamsDistFn := catalog.ToLower(params[catalog.IndexAlgoParamOpType])
-	kmeansInitType := "kmeansplusplus"
-	kmeansNormalize := "false"
+	kmeansInitType := "random"
+	kmeansNormalize := "true"
 
 	// 1.b init centroids table with default centroid, if centroids are not enough.
 	// NOTE: we can run re-index to improve the centroid quality.
@@ -216,7 +216,26 @@ func (s *Scope) handleIvfIndexCentroidsTable(c *Compile, indexDef *plan.IndexDef
 		kmeansNormalize,
 		sampleSQL,
 	)
+
+	err = c.runSql(fmt.Sprintf("INSERT INTO `%s`.`%s` (%s, %s) VALUES ('clustering_start', NOW()) "+
+		" ON DUPLICATE KEY UPDATE %s = NOW();",
+		qryDatabase, metaTableName, catalog.SystemSI_IVFFLAT_TblCol_Metadata_key,
+		catalog.SystemSI_IVFFLAT_TblCol_Metadata_val, catalog.SystemSI_IVFFLAT_TblCol_Metadata_val,
+	))
+	if err != nil {
+		return err
+	}
+
 	err = c.runSql(clusterCentersSQL)
+	if err != nil {
+		return err
+	}
+
+	err = c.runSql(fmt.Sprintf("INSERT INTO `%s`.`%s` (%s, %s) VALUES ('clustering_end', NOW()) "+
+		" ON DUPLICATE KEY UPDATE %s = NOW();",
+		qryDatabase, metaTableName, catalog.SystemSI_IVFFLAT_TblCol_Metadata_key,
+		catalog.SystemSI_IVFFLAT_TblCol_Metadata_val, catalog.SystemSI_IVFFLAT_TblCol_Metadata_val,
+	))
 	if err != nil {
 		return err
 	}
@@ -228,7 +247,7 @@ func (s *Scope) handleIvfIndexEntriesTable(c *Compile, indexDef *plan.IndexDef, 
 	metadataTableName string,
 	centroidsTableName string) error {
 	// 0. Is Normalized or not
-	shouldIndexColBeNormalized := false
+	shouldIndexColBeNormalized := true
 
 	// 1. algo params
 	params, err := catalog.IndexParamsStringToMap(indexDef.IndexAlgoParams)
@@ -325,7 +344,25 @@ func (s *Scope) handleIvfIndexEntriesTable(c *Compile, indexDef *plan.IndexDef, 
 		originalTblPkColMaySerial,
 	)
 
+	err = c.runSql(fmt.Sprintf("INSERT INTO `%s`.`%s` (%s, %s) VALUES ('mapping_start', NOW()) "+
+		" ON DUPLICATE KEY UPDATE %s = NOW();",
+		qryDatabase, metadataTableName, catalog.SystemSI_IVFFLAT_TblCol_Metadata_key,
+		catalog.SystemSI_IVFFLAT_TblCol_Metadata_val, catalog.SystemSI_IVFFLAT_TblCol_Metadata_val,
+	))
+	if err != nil {
+		return err
+	}
+
 	err = c.runSql(mappingSQL)
+	if err != nil {
+		return err
+	}
+
+	err = c.runSql(fmt.Sprintf("INSERT INTO `%s`.`%s` (%s, %s) VALUES ('mapping_end', NOW()) "+
+		" ON DUPLICATE KEY UPDATE %s = NOW();",
+		qryDatabase, metadataTableName, catalog.SystemSI_IVFFLAT_TblCol_Metadata_key,
+		catalog.SystemSI_IVFFLAT_TblCol_Metadata_val, catalog.SystemSI_IVFFLAT_TblCol_Metadata_val,
+	))
 	if err != nil {
 		return err
 	}
