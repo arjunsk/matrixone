@@ -142,7 +142,7 @@ func (s *Scope) handleIvfIndexCentroidsTable(c *Compile, indexDef *plan.IndexDef
 		return err
 	}
 	centroidParamsDistFn := catalog.ToLower(params[catalog.IndexAlgoParamOpType])
-	kmeansInitType := "random"
+	kmeansInitType := "kmeansplusplus"
 	kmeansNormalize := "true"
 
 	// 1.b init centroids table with default centroid, if centroids are not enough.
