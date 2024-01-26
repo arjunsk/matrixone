@@ -16,6 +16,8 @@ package elkans
 
 import (
 	"github.com/matrixorigin/matrixone/pkg/vectorize/moarray"
+	"gonum.org/v1/gonum/mat"
+	"math/rand"
 	"testing"
 )
 
@@ -167,3 +169,33 @@ func Test_L2Distance(t *testing.T) {
 //		})
 //	}
 //}
+
+func Benchmark_L2Distance(b *testing.B) {
+	dim := 128
+
+	b.Run("L2 Distance", func(b *testing.B) {
+		v1, v2 := randomGonumVectors(b.N, dim), randomGonumVectors(b.N, dim)
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			L2Distance(v1[i], v2[i])
+		}
+	})
+
+}
+
+func randomGonumVector(size int) *mat.VecDense {
+	data := make([]float64, size)
+	for i := range data {
+		data[i] = rand.Float64()
+	}
+	return mat.NewVecDense(size, data)
+}
+
+func randomGonumVectors(size, dim int) []*mat.VecDense {
+	vectors := make([]*mat.VecDense, size)
+	for i := range vectors {
+		vectors[i] = randomGonumVector(dim)
+	}
+	return vectors
+}
