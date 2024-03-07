@@ -177,30 +177,30 @@ func makeIndexTblScan(builder *QueryBuilder, bindCtx *BindContext, filterExp *pl
 		function.SerialHelper(arg0AsColNameVec, nil, ps, true)
 		function.SerialHelper(arg1AsColValuesVec, nil, ps, true)
 
-		prefixInArg2Vec := vector.NewVec(inVecType)
+		arg1ForPrefixInVec := vector.NewVec(inVecType)
 		for i := 0; i < inExprListLen; i++ {
-			_ = vector.AppendBytes(prefixInArg2Vec, ps[i].Bytes(), false, mp)
+			_ = vector.AppendBytes(arg1ForPrefixInVec, ps[i].Bytes(), false, mp)
 		}
-		newInEntryAsBytes, _ := prefixInArg2Vec.MarshalBinary()
-		//prefixInArg2Vec.Free(mp)
+		arg1ForPrefixInBytes, _ := arg1ForPrefixInVec.MarshalBinary()
+		arg1ForPrefixInVec.Free(mp)
 
-		inEntryAsLiteralVec := &plan.Expr{
+		arg1ForPrefixInLitVec := &plan.Expr{
 			Typ: *makePlan2Type(&varcharType),
 			Expr: &plan.Expr_Vec{
 				Vec: &plan.LiteralVec{
-					Len:  int32(len(newInEntryAsBytes)),
-					Data: newInEntryAsBytes,
+					Len:  int32(len(arg1ForPrefixInBytes)),
+					Data: arg1ForPrefixInBytes,
 				},
 			},
 		}
 
-		//serialFull, _ := bindFuncExprAndConstFold(builder.GetContext(), builder.compCtx.GetProcess(), "serial_full", []*Expr{
-		//	inEntryAsLiteralVec,
+		//serialFullExpr, _ := bindFuncExprAndConstFold(builder.GetContext(), builder.compCtx.GetProcess(), "serial_full", []*Expr{
+		//	arg1ForPrefixInLitVec,
 		//})
 
 		filterList, _ = bindFuncExprAndConstFold(builder.GetContext(), builder.compCtx.GetProcess(), "prefix_in", []*Expr{
-			indexKeyCol,         // __mo_index_idx_col
-			inEntryAsLiteralVec, // serial_full("a","value1")
+			indexKeyCol,           // __mo_index_idx_col
+			arg1ForPrefixInLitVec, // (serial_full("a","value1"), serial_full("a","value2"), serial_full("a","value3"))
 		})
 
 	default:
