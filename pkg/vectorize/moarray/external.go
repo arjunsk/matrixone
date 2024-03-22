@@ -191,21 +191,23 @@ func CosineSimilarity[T types.RealNumbers](v1, v2 []T) (float64, error) {
 	return cosineSimilarity, nil
 }
 
-func NormalizeL2[T types.RealNumbers](v1 []T) ([]T, error) {
-	//TODO: optimize this later.
-	vec := ToGonumVector[T](v1)
+func NormalizeL2[T types.RealNumbers](v []T) ([]T, error) {
+	var sum T
+	for _, value := range v {
+		sum += value * value
+	}
+	norm := math.Sqrt(float64(sum))
 
-	norm := mat.Norm(vec, 2)
 	if norm == 0 {
-		// NOTE: don't throw error here. If you throw error, then when a zero vector comes in the Vector Index
-		// Mapping Query, the query will fail. Instead, return the same zero vector.
-		// This is consistent with FAISS:https://github.com/facebookresearch/faiss/blob/0716bde2500edb2e18509bf05f5dfa37bd698082/faiss/utils/distances.cpp#L97
-		return v1, nil
+		return v, nil
 	}
 
-	vec.ScaleVec(1/norm, vec)
+	output := make([]T, len(v))
+	for i := range v {
+		output[i] = v[i] / T(norm)
+	}
 
-	return ToMoArray[T](vec), nil
+	return output, nil
 }
 
 // L1Norm returns l1 distance to origin.
