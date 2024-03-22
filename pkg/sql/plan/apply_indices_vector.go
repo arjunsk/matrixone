@@ -143,19 +143,6 @@ func makeMetaTblScanWhereKeyEqVersionAndCastVersion(builder *QueryBuilder, bindC
 	// 3. Project value column as BigInt
 	castMetaValueColToBigInt, err := makePlan2CastExpr(builder.GetContext(), scanCols[1], makePlan2Type(&bigIntType))
 
-	//// 2. Project value column as BigInt
-	//idxTags[prefix+".project"] = builder.genNewTag()
-	//castMetaValueColToBigInt, err := makePlan2CastExpr(builder.GetContext(), scanCols[1], makePlan2Type(&bigIntType))
-	//if err != nil {
-	//	return -1, err
-	//}
-	//metaProjectId := builder.appendNode(&Node{
-	//	NodeType:    plan.Node_PROJECT,
-	//	Children:    []int32{metaTableScanId},
-	//	ProjectList: []*plan.Expr{castMetaValueColToBigInt},
-	//	BindingTags: []int32{idxTags[prefix+".project"]},
-	//}, bindCtx)
-
 	return metaTableScanId, castMetaValueColToBigInt, nil
 }
 
