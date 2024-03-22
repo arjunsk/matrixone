@@ -90,11 +90,15 @@ func (builder *QueryBuilder) applyIndicesForSortUsingVectorIndex(nodeID int32, s
 	// 2.d Create JOIN entries and centroids on entries.centroid_id_fk == centroids.centroid_id
 	scanNode.Limit = nil
 	scanNode.Offset = nil
-	entriesJoinCentroids := makeEntriesCrossJoinCentroidsOnCentroidId(builder, builder.ctxByNode[nodeID], idxTableDefs, idxTags, entriesForCurrVersion, centroidsForCurrVersion)
+	entriesJoinCentroids := makeEntriesCrossJoinCentroidsOnCentroidId(builder, builder.ctxByNode[nodeID],
+		idxTableDefs, idxTags,
+		entriesForCurrVersion, centroidsForCurrVersion)
 
 	// 2.e Create entries JOIN tbl on entries.original_pk == tbl.pk
 	var pkPos = scanNode.TableDef.Name2ColIndex[scanNode.TableDef.Pkey.PkeyColName] //TODO: watch out.
-	projectTbl := makeTblCrossJoinEntriesCentroidOnPK(builder, builder.ctxByNode[nodeID], idxTableDefs, idxTags, scanNode, entriesJoinCentroids, pkPos)
+	projectTbl := makeTblCrossJoinEntriesCentroidOnPK(builder, builder.ctxByNode[nodeID],
+		idxTableDefs, idxTags,
+		scanNode, entriesJoinCentroids, pkPos)
 
 	// 2.f Sort By l2_distance(vector_col, normalize_l2(literal)) ASC limit original_limit
 	sortTblByL2Distance := makeTblOrderByL2DistNormalizeL2(builder, builder.ctxByNode[nodeID],
@@ -320,7 +324,7 @@ func makeEntriesCrossJoinMetaOnCurrVersion(builder *QueryBuilder, bindCtx *BindC
 	return projectCols, nil
 }
 
-func makeEntriesCrossJoinCentroidsOnCentroidId(builder *QueryBuilder, bindCtx *BindContext, idxTableDefs []*TableDef, idxTags map[string]int32, entriesForCurrVersion, centroidsForCurrVersion int32) int32 {
+func makeEntriesCrossJoinCentroidsOnCentroidId(builder *QueryBuilder, bindCtx *BindContext, idxTableDefs []*TableDef, idxTags map[string]int32, entriesForCurrVersion int32, centroidsForCurrVersion int32) int32 {
 	entriesCentroidIdEqCentroidId, _ := BindFuncExprImplByPlanExpr(builder.GetContext(), "=", []*Expr{
 		{
 			Typ: idxTableDefs[2].Cols[1].Typ,
@@ -356,7 +360,7 @@ func makeEntriesCrossJoinCentroidsOnCentroidId(builder *QueryBuilder, bindCtx *B
 }
 
 func makeTblCrossJoinEntriesCentroidOnPK(builder *QueryBuilder, bindCtx *BindContext, idxTableDefs []*TableDef, idxTags map[string]int32,
-	scanNode *plan.Node, entriesJoinCentroids, pkPos int32) int32 {
+	scanNode *plan.Node, entriesJoinCentroids int32, pkPos int32) int32 {
 
 	entriesOriginPkEqTblPk, _ := BindFuncExprImplByPlanExpr(builder.GetContext(), "=", []*Expr{
 
