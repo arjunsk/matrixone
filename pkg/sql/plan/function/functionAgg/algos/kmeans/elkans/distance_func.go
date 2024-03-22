@@ -18,13 +18,19 @@ import (
 	"github.com/matrixorigin/matrixone/pkg/common/moerr"
 	"github.com/matrixorigin/matrixone/pkg/sql/plan/function/functionAgg/algos/kmeans"
 	"gonum.org/v1/gonum/mat"
+	"math"
 )
 
 // L2Distance is used for L2Distance distance in Euclidean Kmeans.
 func L2Distance(v1, v2 *mat.VecDense) float64 {
-	diff := mat.NewVecDense(v1.Len(), nil)
-	diff.SubVec(v1, v2)
-	return mat.Norm(diff, 2)
+	var sumOfSquares float64
+	for i := 0; i < v1.Len(); i++ {
+		difference := v1.AtVec(i) - v2.AtVec(i)
+		sumOfSquares += difference * difference
+	}
+
+	return math.Sqrt(sumOfSquares)
+
 }
 
 //// SphericalDistance is used for InnerProduct and CosineDistance in Spherical Kmeans.
