@@ -88,15 +88,13 @@ func (builder *QueryBuilder) applyIndicesForSortUsingVectorIndex(nodeID int32, s
 		idxTableDefs, idxObjRefs, idxTags, metaForCurrVersion2)
 
 	// 2.d Create JOIN entries and centroids on entries.centroid_id_fk == centroids.centroid_id
-	entriesJoinCentroids := makeEntriesCrossJoinCentroidsOnCentroidId(builder, builder.ctxByNode[nodeID],
-		idxTableDefs, idxTags,
-		entriesForCurrVersion, centroidsForCurrVersion, scanNode)
+	scanNode.Limit = nil
+	scanNode.Offset = nil
+	entriesJoinCentroids := makeEntriesCrossJoinCentroidsOnCentroidId(builder, builder.ctxByNode[nodeID], idxTableDefs, idxTags, entriesForCurrVersion, centroidsForCurrVersion)
 
 	// 2.e Create entries JOIN tbl on entries.original_pk == tbl.pk
 	var pkPos = scanNode.TableDef.Name2ColIndex[scanNode.TableDef.Pkey.PkeyColName] //TODO: watch out.
-	projectTbl := makeTblCrossJoinEntriesCentroidOnPK(builder, builder.ctxByNode[nodeID],
-		idxTableDefs, idxTags,
-		scanNode, entriesJoinCentroids, pkPos)
+	projectTbl := makeTblCrossJoinEntriesCentroidOnPK(builder, builder.ctxByNode[nodeID], idxTableDefs, idxTags, scanNode, entriesJoinCentroids, pkPos)
 
 	// 2.f Sort By l2_distance(vector_col, normalize_l2(literal)) ASC limit original_limit
 	sortTblByL2Distance := makeTblOrderByL2DistNormalizeL2(builder, builder.ctxByNode[nodeID],
@@ -322,7 +320,7 @@ func makeEntriesCrossJoinMetaOnCurrVersion(builder *QueryBuilder, bindCtx *BindC
 	return projectCols, nil
 }
 
-func makeEntriesCrossJoinCentroidsOnCentroidId(builder *QueryBuilder, bindCtx *BindContext, idxTableDefs []*TableDef, idxTags map[string]int32, entriesForCurrVersion int32, centroidsForCurrVersion int32, scanNode *plan.Node) int32 {
+func makeEntriesCrossJoinCentroidsOnCentroidId(builder *QueryBuilder, bindCtx *BindContext, idxTableDefs []*TableDef, idxTags map[string]int32, entriesForCurrVersion, centroidsForCurrVersion int32) int32 {
 	entriesCentroidIdEqCentroidId, _ := BindFuncExprImplByPlanExpr(builder.GetContext(), "=", []*Expr{
 		{
 			Typ: idxTableDefs[2].Cols[1].Typ,
@@ -350,15 +348,15 @@ func makeEntriesCrossJoinCentroidsOnCentroidId(builder *QueryBuilder, bindCtx *B
 		JoinType: plan.Node_INNER,
 		Children: []int32{entriesForCurrVersion, centroidsForCurrVersion},
 		OnList:   []*Expr{entriesCentroidIdEqCentroidId},
-		Limit:    DeepCopyExpr(scanNode.Limit),
-		Offset:   DeepCopyExpr(scanNode.Offset),
+		// Can't set limit here since we want all the rows
+		// from "Tbl" JOIN "Entries-Centroids"
 	}, bindCtx)
 
 	return joinEntriesAndCentroids
 }
 
 func makeTblCrossJoinEntriesCentroidOnPK(builder *QueryBuilder, bindCtx *BindContext, idxTableDefs []*TableDef, idxTags map[string]int32,
-	scanNode *plan.Node, entriesJoinCentroids int32, pkPos int32) int32 {
+	scanNode *plan.Node, entriesJoinCentroids, pkPos int32) int32 {
 
 	entriesOriginPkEqTblPk, _ := BindFuncExprImplByPlanExpr(builder.GetContext(), "=", []*Expr{
 
@@ -382,17 +380,13 @@ func makeTblCrossJoinEntriesCentroidOnPK(builder *QueryBuilder, bindCtx *BindCon
 		},
 	})
 	// TODO: revisit this part to implement SEMI join
-	copyScanNodeLimit := DeepCopyExpr(scanNode.Limit)
-	copyScanNodeOffset := DeepCopyExpr(scanNode.Offset)
-	scanNode.Limit = nil
-	scanNode.Offset = nil
 	entriesJoinTbl := builder.appendNode(&plan.Node{
 		NodeType: plan.Node_JOIN,
 		JoinType: plan.Node_INDEX,
 		Children: []int32{scanNode.NodeId, entriesJoinCentroids},
 		OnList:   []*Expr{entriesOriginPkEqTblPk},
-		Limit:    copyScanNodeLimit,
-		Offset:   copyScanNodeOffset,
+		// Can't set limit here since we want all the rows
+		// from "Tbl" JOIN "Entries-Centroids"
 	}, bindCtx)
 
 	return entriesJoinTbl
@@ -417,7 +411,8 @@ func makeTblOrderByL2DistNormalizeL2(builder *QueryBuilder, bindCtx *BindContext
 	sortTblByL2Distance := builder.appendNode(&plan.Node{
 		NodeType: plan.Node_SORT,
 		Children: []int32{projectTbl},
-		Limit:    sortNode.Limit,
+		Limit:    DeepCopyExpr(sortNode.Limit),
+		Offset:   DeepCopyExpr(sortNode.Offset),
 		OrderBy: []*OrderBySpec{
 			{
 				Expr: l2DistanceColLit,
