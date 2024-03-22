@@ -359,15 +359,7 @@ func makeTblCrossJoinEntriesCentroidOnPK(builder *QueryBuilder, bindCtx *BindCon
 	scanNode *plan.Node, entriesJoinCentroids int32, pkPos int32) int32 {
 
 	entriesOriginPkEqTblPk, _ := BindFuncExprImplByPlanExpr(builder.GetContext(), "=", []*Expr{
-		{
-			Typ: idxTableDefs[2].Cols[2].Typ,
-			Expr: &plan.Expr_Col{
-				Col: &plan.ColRef{
-					RelPos: idxTags["entries.project"],
-					ColPos: 2, // entries.origin_pk
-				},
-			},
-		},
+
 		{
 			Typ: idxTableDefs[2].Cols[2].Typ,
 			Expr: &plan.Expr_Col{
@@ -377,11 +369,20 @@ func makeTblCrossJoinEntriesCentroidOnPK(builder *QueryBuilder, bindCtx *BindCon
 				},
 			},
 		},
+		{
+			Typ: idxTableDefs[2].Cols[2].Typ,
+			Expr: &plan.Expr_Col{
+				Col: &plan.ColRef{
+					RelPos: idxTags["entries.project"],
+					ColPos: 2, // entries.origin_pk
+				},
+			},
+		},
 	})
 	// TODO: revisit this part to implement SEMI join
 	entriesJoinTbl := builder.appendNode(&plan.Node{
 		NodeType: plan.Node_JOIN,
-		JoinType: plan.Node_INNER,
+		JoinType: plan.Node_INDEX,
 		Children: []int32{entriesJoinCentroids, scanNode.NodeId},
 		OnList:   []*Expr{entriesOriginPkEqTblPk},
 	}, bindCtx)
