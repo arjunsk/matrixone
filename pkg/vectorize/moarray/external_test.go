@@ -397,7 +397,7 @@ func TestNormalizeL2(t *testing.T) {
 		{
 			name:    "Test1.b - float32",
 			args:    args{argF32: []float32{1, 2, 3}},
-			wantF32: []float32{0.26726124, 0.5345225, 0.80178374},
+			wantF32: []float32{0.26726124, 0.5345225, 0.8017837},
 		},
 		{
 			name:    "Test1.c - float32",
