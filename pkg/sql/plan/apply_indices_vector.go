@@ -26,8 +26,8 @@ var (
 		"cosine_distance": "vector_ip_ops",
 		"inner_product":   "vector_cosine_ops",
 	}
-	float64Type = types.T_float64.ToType() // return type of distance functions
-	textType    = types.T_text.ToType()    // return type of @probe_limit
+	//float64Type = types.T_float64.ToType() // return type of distance functions
+	textType = types.T_text.ToType() // return type of @probe_limit
 )
 
 // You replace Sort Node with a new Project Node
@@ -142,6 +142,9 @@ func makeMetaTblScanWhereKeyEqVersionAndCastVersion(builder *QueryBuilder, bindC
 
 	// 3. Project value column as BigInt
 	castMetaValueColToBigInt, err := makePlan2CastExpr(builder.GetContext(), scanCols[1], makePlan2Type(&bigIntType))
+	if err != nil {
+		return -1, nil, err
+	}
 
 	return metaTableScanId, castMetaValueColToBigInt, nil
 }
@@ -333,7 +336,7 @@ func makeTblCrossJoinEntriesCentroidOnPK(builder *QueryBuilder, bindCtx *BindCon
 	// TODO: revisit this part to implement SEMI join
 	entriesJoinTbl := builder.appendNode(&plan.Node{
 		NodeType: plan.Node_JOIN,
-		JoinType: plan.Node_INNER,
+		JoinType: plan.Node_INDEX,
 		Children: []int32{scanNode.NodeId, entriesJoinCentroids},
 		OnList:   []*Expr{entriesOriginPkEqTblPk},
 		// Can't set limit here since we want all the rows
