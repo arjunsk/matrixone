@@ -2043,7 +2043,7 @@ func buildIvfFlatSecondaryIndexDef(ctx CompilerContext, indexInfo *tree.Index, c
 		tableDefs[2] = &TableDef{
 			Name:      indexTableName,
 			TableType: catalog.SystemSI_IVFFLAT_TblType_Entries,
-			Cols:      make([]*ColDef, 4),
+			Cols:      make([]*ColDef, 5),
 		}
 
 		// 3.b indexDefs[2] init
@@ -2099,16 +2099,31 @@ func buildIvfFlatSecondaryIndexDef(ctx CompilerContext, indexInfo *tree.Index, c
 				OriginString: "",
 			},
 		}
-		tableDefs[2].Cols[3] = MakeHiddenColDefByName(catalog.CPrimaryKeyColName)
-		tableDefs[2].Cols[3].Alg = plan.CompressType_Lz4
-		tableDefs[2].Cols[3].Primary = true
+
+		tableDefs[2].Cols[3] = &ColDef{
+			Name: catalog.SystemSI_IVFFLAT_TblCol_Entries_entry,
+			Alg:  plan.CompressType_Lz4,
+			Typ: Type{
+				Id:    colMap[indexInfo.KeyParts[0].ColName.Parts[0]].Typ.Id,
+				Width: colMap[indexInfo.KeyParts[0].ColName.Parts[0]].Typ.Width,
+			},
+			Default: &plan.Default{
+				NullAbility:  true,
+				Expr:         nil,
+				OriginString: "",
+			},
+		}
+
+		tableDefs[2].Cols[4] = MakeHiddenColDefByName(catalog.CPrimaryKeyColName)
+		tableDefs[2].Cols[4].Alg = plan.CompressType_Lz4
+		tableDefs[2].Cols[4].Primary = true
 
 		// 3.d PK def
 		tableDefs[2].Pkey = &PrimaryKeyDef{
 			Names: []string{catalog.SystemSI_IVFFLAT_TblCol_Entries_version,
 				catalog.SystemSI_IVFFLAT_TblCol_Entries_pk},
 			PkeyColName: catalog.CPrimaryKeyColName,
-			CompPkeyCol: tableDefs[2].Cols[3],
+			CompPkeyCol: tableDefs[2].Cols[4],
 		}
 	}
 
