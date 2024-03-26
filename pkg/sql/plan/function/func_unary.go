@@ -20,9 +20,11 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -99,15 +101,51 @@ func AbsArray[T types.RealNumbers](ivecs []*vector.Vector, result vector.Functio
 	})
 }
 
+// TODO: this is an adhoc tryout.
+var (
+	v32Pool = sync.Pool{
+		New: func() any {
+			return make([]float32, 0, 16)
+		},
+	}
+	v64Pool = sync.Pool{
+		New: func() any {
+			return make([]float64, 0, 16)
+		},
+	}
+)
+
 func NormalizeL2Array[T types.RealNumbers](ivecs []*vector.Vector, result vector.FunctionResultWrapper, proc *process.Process, length int) error {
 	return opUnaryBytesToBytesWithErrorCheck(ivecs, result, proc, length, func(in []byte) ([]byte, error) {
 		_in := types.BytesToArray[T](in)
-		_out, err := moarray.NormalizeL2(_in)
+
+		//TODO: this is a adhoc try out. I will only work for VECF32.
+		_out := v32Pool.Get().([]float32)
+		if cap(_out) < len(_in) {
+			_out = make([]float32, len(_in))
+		} else {
+			_out = _out[:len(_in)]
+		}
+
+		__out := convertFloat32SliceToGeneric[float32](_out).([]T)
+		_, err := moarray.NormalizeL2(_in, __out)
+		defer v32Pool.Put(_out)
+
 		if err != nil {
 			return nil, err
 		}
-		return types.ArrayToBytes[T](_out), nil
+		return types.ArrayToBytes[T](__out), nil
 	})
+}
+
+func convertFloat32SliceToGeneric[T types.RealNumbers](src []float32) any {
+	headerSrc := (*reflect.SliceHeader)(unsafe.Pointer(&src))
+	headerDst := &reflect.SliceHeader{
+		Data: headerSrc.Data,
+		Len:  headerSrc.Len,
+		Cap:  headerSrc.Cap,
+	}
+	return *(*[]T)(unsafe.Pointer(headerDst))
 }
 
 func L1NormArray[T types.RealNumbers](ivecs []*vector.Vector, result vector.FunctionResultWrapper, proc *process.Process, length int) error {

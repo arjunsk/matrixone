@@ -191,7 +191,7 @@ func CosineSimilarity[T types.RealNumbers](v1, v2 []T) (float64, error) {
 	return cosineSimilarity, nil
 }
 
-func NormalizeL2[T types.RealNumbers](v []T) ([]T, error) {
+func NormalizeL2[T types.RealNumbers](v []T, output []T) ([]T, error) {
 	var sum T
 	for _, value := range v {
 		sum += value * value
@@ -202,7 +202,7 @@ func NormalizeL2[T types.RealNumbers](v []T) ([]T, error) {
 		return v, nil
 	}
 
-	output := make([]T, len(v))
+	//output := make([]T, len(v))
 	for i := range v {
 		output[i] = v[i] / T(norm)
 	}
