@@ -93,10 +93,37 @@ func (builder *QueryBuilder) applyIndicesForSortUsingVectorIndex(nodeID int32, s
 	entriesJoinCentroids := makeEntriesCrossJoinCentroidsOnCentroidId(builder, builder.ctxByNode[nodeID],
 		idxTableDefs, idxTags,
 		entriesForCurrVersion, centroidsForCurrVersion)
+
+	var joinMetaAndEntriesId int32
+	{
+		// 2. JOIN entries and meta on version + Project version, centroid_id_fk, origin_pk
+		joinCond, err := BindFuncExprImplByPlanExpr(builder.GetContext(), "=", []*Expr{
+			{
+				Typ: idxTableDefs[2].Cols[0].Typ,
+				Expr: &plan.Expr_Col{
+					Col: &plan.ColRef{
+						RelPos: idxTags["entries.scan"],
+						ColPos: 0, //entries.version
+					},
+				},
+			},
+			castMetaValueColToBigInt2,
+		})
+		if err != nil {
+			return -1
+		}
+		joinMetaAndEntriesId = builder.appendNode(&plan.Node{
+			NodeType: plan.Node_JOIN,
+			JoinType: plan.Node_SEMI,
+			Children: []int32{entriesJoinCentroids, metaForCurrVersion2},
+			OnList:   []*Expr{joinCond},
+		}, builder.ctxByNode[nodeID])
+	}
+
 	//return entriesJoinCentroids
 	// 2.f Sort By l2_distance(vector_col, normalize_l2(literal)) ASC limit original_limit
 	sortTblByL2Distance := makeTblOrderByL2DistNormalizeL2(builder, builder.ctxByNode[nodeID], sortNode,
-		distFnExpr, entriesJoinCentroids, sortDirection, idxTableDefs, idxTags)
+		distFnExpr, joinMetaAndEntriesId, sortDirection, idxTableDefs, idxTags)
 
 	var pkPos = scanNode.TableDef.Name2ColIndex[scanNode.TableDef.Pkey.PkeyColName] //TODO: watch out.
 
@@ -280,25 +307,25 @@ func makeEntriesCrossJoinMetaOnCurrVersion(builder *QueryBuilder, bindCtx *BindC
 	metaTableScanId int32, castMetaValueColToBigInt2 *Expr) (int32, error) {
 
 	// 1. Scan version, centroid_id_fk, origin_pk from entries table
-	entriesScanId, scanCols, _ := makeHiddenTblScanWithBindingTag(builder, bindCtx, indexTableDefs[2], idxRefs[2],
+	entriesScanId, _, _ := makeHiddenTblScanWithBindingTag(builder, bindCtx, indexTableDefs[2], idxRefs[2],
 		idxTags["entries.scan"])
 
-	// 2. JOIN entries and meta on version + Project version, centroid_id_fk, origin_pk
-	joinCond, err := BindFuncExprImplByPlanExpr(builder.GetContext(), "=", []*Expr{
-		scanCols[0],
-		castMetaValueColToBigInt2,
-	})
-	if err != nil {
-		return -1, err
-	}
-	joinMetaAndEntriesId := builder.appendNode(&plan.Node{
-		NodeType: plan.Node_JOIN,
-		JoinType: plan.Node_SINGLE,
-		Children: []int32{entriesScanId, metaTableScanId},
-		OnList:   []*Expr{joinCond},
-	}, bindCtx)
+	//// 2. JOIN entries and meta on version + Project version, centroid_id_fk, origin_pk
+	//joinCond, err := BindFuncExprImplByPlanExpr(builder.GetContext(), "=", []*Expr{
+	//	scanCols[0],
+	//	castMetaValueColToBigInt2,
+	//})
+	//if err != nil {
+	//	return -1, err
+	//}
+	//joinMetaAndEntriesId := builder.appendNode(&plan.Node{
+	//	NodeType: plan.Node_JOIN,
+	//	JoinType: plan.Node_SINGLE,
+	//	Children: []int32{entriesScanId, metaTableScanId},
+	//	OnList:   []*Expr{joinCond},
+	//}, bindCtx)
 
-	return joinMetaAndEntriesId, nil
+	return entriesScanId, nil
 }
 
 func makeEntriesCrossJoinCentroidsOnCentroidId(builder *QueryBuilder, bindCtx *BindContext, idxTableDefs []*TableDef, idxTags map[string]int32, entriesForCurrVersion int32, centroidsForCurrVersion int32) int32 {
