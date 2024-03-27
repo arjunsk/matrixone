@@ -326,7 +326,7 @@ func makeEntriesCrossJoinCentroidsOnCentroidId(builder *QueryBuilder, bindCtx *B
 	// 1. Create JOIN entries and centroids on centroid_id_fk == centroid_id
 	joinEntriesAndCentroids := builder.appendNode(&plan.Node{
 		NodeType: plan.Node_JOIN,
-		JoinType: plan.Node_INNER,
+		JoinType: plan.Node_SEMI,
 		Children: []int32{entriesForCurrVersion, centroidsForCurrVersion},
 		OnList:   []*Expr{entriesCentroidIdEqCentroidId},
 		// Can't set limit here since we want all the rows
