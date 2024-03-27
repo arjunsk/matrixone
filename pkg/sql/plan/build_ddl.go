@@ -2120,8 +2120,11 @@ func buildIvfFlatSecondaryIndexDef(ctx CompilerContext, indexInfo *tree.Index, c
 
 		// 3.d PK def
 		tableDefs[2].Pkey = &PrimaryKeyDef{
-			Names: []string{catalog.SystemSI_IVFFLAT_TblCol_Entries_version,
-				catalog.SystemSI_IVFFLAT_TblCol_Entries_pk},
+			Names: []string{
+				catalog.SystemSI_IVFFLAT_TblCol_Entries_id,
+				catalog.SystemSI_IVFFLAT_TblCol_Entries_version,
+				catalog.SystemSI_IVFFLAT_TblCol_Entries_pk,
+			},
 			PkeyColName: catalog.CPrimaryKeyColName,
 			CompPkeyCol: tableDefs[2].Cols[4],
 		}
