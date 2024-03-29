@@ -366,17 +366,24 @@ func makeEntriesCrossJoinCentroidsOnCentroidId(builder *QueryBuilder, bindCtx *B
 		},
 	})
 
-	//andEq, _ := BindFuncExprImplByPlanExpr(builder.GetContext(), "and", []*Expr{
-	//	entriesCentroidIdEqCentroidId,
-	//	centroidVersionEqEntriesVersion,
-	//})
+	var OnList []*Expr
+	if true {
+		andEq, _ := BindFuncExprImplByPlanExpr(builder.GetContext(), "and", []*Expr{
+			entriesCentroidIdEqCentroidId,
+			centroidVersionEqEntriesVersion,
+		})
+
+		OnList = []*Expr{andEq}
+	} else {
+		OnList = []*Expr{entriesCentroidIdEqCentroidId, centroidVersionEqEntriesVersion}
+	}
 
 	// 1. Create JOIN entries and centroids on centroid_id_fk == centroid_id
 	joinEntriesAndCentroids := builder.appendNode(&plan.Node{
 		NodeType: plan.Node_JOIN,
 		JoinType: plan.Node_SEMI,
 		Children: []int32{entriesForCurrVersion, centroidsForCurrVersion},
-		OnList:   []*Expr{entriesCentroidIdEqCentroidId, centroidVersionEqEntriesVersion},
+		OnList:   OnList,
 	}, bindCtx)
 
 	return joinEntriesAndCentroids
