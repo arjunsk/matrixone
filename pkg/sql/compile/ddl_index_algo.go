@@ -401,7 +401,7 @@ func (s *Scope) logTimestamp(c *Compile, qryDatabase, metadataTableName, metrics
 }
 
 func (s *Scope) isExperimentalEnabled(c *Compile, flag string) (bool, error) {
-	// 1. select @@experimental_vector_index;
+	// 1. select @experimental_vector_index;
 	// 2. SHOW SESSION VARIABLES LIKE 'experimental_vector_index';
 	rs, err := c.runSqlWithResult("select @" + flag + ";")
 	if err != nil {

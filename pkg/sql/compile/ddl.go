@@ -1498,6 +1498,13 @@ func (s *Scope) CreateIndex(c *Compile) error {
 }
 
 func (s *Scope) handleVectorIvfFlatIndex(c *Compile, indexDefs map[string]*plan.IndexDef, qryDatabase string, originalTableDef *plan.TableDef, indexInfo *plan.CreateTable) error {
+
+	if ok, err := s.isExperimentalEnabled(c, "experimental_vector_index"); err != nil {
+		return err
+	} else if !ok {
+		return moerr.NewInternalErrorNoCtx("IVF index is not enabled")
+	}
+
 	// 1. static check
 	if len(indexDefs) != 3 {
 		return moerr.NewInternalErrorNoCtx("invalid ivf index table definition")
@@ -1519,12 +1526,6 @@ func (s *Scope) handleVectorIvfFlatIndex(c *Compile, indexDefs map[string]*plan.
 				return err
 			}
 		}
-	}
-
-	if ok, err := s.isExperimentalEnabled(c, "experimental_vector_index"); err != nil {
-		return err
-	} else if !ok {
-		return moerr.NewInternalErrorNoCtx("IVF index is not enabled")
 	}
 
 	// 3. get count of secondary index column in original table
