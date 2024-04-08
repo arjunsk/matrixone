@@ -399,3 +399,21 @@ func (s *Scope) logTimestamp(c *Compile, qryDatabase, metadataTableName, metrics
 		catalog.SystemSI_IVFFLAT_TblCol_Metadata_val,
 	))
 }
+
+func (s *Scope) isExperimentalEnabled(c *Compile, flag string) (bool, error) {
+	// 1. select @@experimental_vector_index;
+	// 2. SHOW SESSION VARIABLES LIKE 'experimental_vector_index';
+	rs, err := c.runSqlWithResult("select @" + flag + ";")
+	if err != nil {
+		return false, err
+	}
+
+	// get the value
+	var isExperimentalEnabled bool
+	rs.ReadRows(func(_ int, cols []*vector.Vector) bool {
+		isExperimentalEnabled = executor.GetFixedRows[bool](cols[0])[0]
+		return false
+	})
+	rs.Close()
+	return isExperimentalEnabled, nil
+}

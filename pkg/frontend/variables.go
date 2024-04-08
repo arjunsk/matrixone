@@ -3556,6 +3556,14 @@ var gSysVarsDefs = map[string]SystemVariable{
 		Type:              InitSystemVariableIntType("keep_user_target_list_in_result", 0, 2, false),
 		Default:           int64(0),
 	},
+	"experimental_vector_index": {
+		Name:              "experimental_vector_index",
+		Scope:             ScopeGlobal,
+		Dynamic:           true,
+		SetVarHintApplies: false,
+		Type:              InitSystemVariableBoolType("experimental_vector_index"),
+		Default:           int64(0),
+	},
 }
 
 func updateTimeZone(sess *Session, vars map[string]interface{}, name string, val interface{}) error {

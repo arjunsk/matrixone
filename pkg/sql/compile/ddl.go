@@ -1521,6 +1521,12 @@ func (s *Scope) handleVectorIvfFlatIndex(c *Compile, indexDefs map[string]*plan.
 		}
 	}
 
+	if ok, err := s.isExperimentalEnabled(c, "experimental_vector_index"); err != nil {
+		return err
+	} else if !ok {
+		return moerr.NewInternalErrorNoCtx("IVF index is not enabled")
+	}
+
 	// 3. get count of secondary index column in original table
 	totalCnt, err := s.handleIndexColCount(c, indexDefs[catalog.SystemSI_IVFFLAT_TblType_Metadata], qryDatabase, originalTableDef)
 	if err != nil {
