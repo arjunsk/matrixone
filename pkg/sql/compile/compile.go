@@ -4431,7 +4431,8 @@ func (c *Compile) runSqlWithResult(sql string) (executor.Result, error) {
 		WithDisableIncrStatement().
 		WithTxn(c.proc.TxnOperator).
 		WithDatabase(c.db).
-		WithTimeZone(c.proc.SessionInfo.TimeZone)
+		WithTimeZone(c.proc.SessionInfo.TimeZone).
+		WithResolveVariableFunc(c.proc.GetResolveVariableFunc())
 	return exec.Exec(c.proc.Ctx, sql, opts)
 }
 

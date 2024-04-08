@@ -409,11 +409,11 @@ func (s *Scope) isExperimentalEnabled(c *Compile, flag string) (bool, error) {
 	}
 
 	// get the value
-	var isExperimentalEnabled bool
+	var isExperimentalEnabled string
 	rs.ReadRows(func(_ int, cols []*vector.Vector) bool {
-		isExperimentalEnabled = executor.GetFixedRows[bool](cols[0])[0]
+		isExperimentalEnabled = executor.GetStringRows(cols[0])[0]
 		return false
 	})
 	rs.Close()
-	return isExperimentalEnabled, nil
+	return isExperimentalEnabled == "1", nil
 }
