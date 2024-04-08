@@ -51,11 +51,6 @@ func (opts Options) WithTimeZone(timeZone *time.Location) Options {
 	return opts
 }
 
-func (opts Options) WithResolveVariableFunc(resolveVariableFunc func(varName string, isSystemVar, isGlobalVar bool) (interface{}, error)) Options {
-	opts.resolveVariableFunc = resolveVariableFunc
-	return opts
-}
-
 // WithMinCommittedTS use minCommittedTS to exec sql. It will set txn's snapshot to
 // minCommittedTS+1, so the txn can see the data which committed at minCommittedTS.
 // It's not work if txn operator is set.
@@ -180,8 +175,4 @@ func (opts Options) WithEnableTrace() Options {
 
 func (opts Options) EnableTrace() bool {
 	return opts.enableTrace
-}
-
-func (opts Options) GetResolveVariableFunc() func(varName string, isSystemVar, isGlobalVar bool) (interface{}, error) {
-	return opts.resolveVariableFunc
 }

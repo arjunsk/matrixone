@@ -63,7 +63,6 @@ type Options struct {
 	statementOptions        StatementOption
 	txnOpts                 []client.TxnOption
 	enableTrace             bool
-	resolveVariableFunc     func(varName string, isSystemVar, isGlobalVar bool) (interface{}, error)
 }
 
 // StatementOption statement execute option.
