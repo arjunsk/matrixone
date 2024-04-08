@@ -401,19 +401,15 @@ func (s *Scope) logTimestamp(c *Compile, qryDatabase, metadataTableName, metrics
 }
 
 func (s *Scope) isExperimentalEnabled(c *Compile, flag string) (bool, error) {
-	// 1. select @experimental_vector_index;
-	// 2. SHOW SESSION VARIABLES LIKE 'experimental_vector_index';
-	rs, err := c.runSqlWithResult("select @" + flag + ";")
+
+	val, err := c.proc.GetResolveVariableFunc()(flag, true, true)
 	if err != nil {
 		return false, err
 	}
 
-	// get the value
-	var isExperimentalEnabled bool
-	rs.ReadRows(func(_ int, cols []*vector.Vector) bool {
-		isExperimentalEnabled = executor.GetFixedRows[bool](cols[0])[0]
-		return false
-	})
-	rs.Close()
-	return isExperimentalEnabled, nil
+	if val == nil {
+		return false, nil
+	}
+
+	return fmt.Sprintf("%v", val) == "1", nil
 }
