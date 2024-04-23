@@ -44,7 +44,9 @@ var (
 	}
 
 	distTypeStrToEnum = map[string]kmeans.DistanceType{
-		"vector_l2_ops": kmeans.L2Distance,
+		"vector_l2_ops":     kmeans.L2Distance,
+		"vector_ip_ops":     kmeans.InnerProduct,
+		"vector_cosine_ops": kmeans.CosineDistance,
 	}
 
 	initTypeStrToEnum = map[string]kmeans.InitType{
