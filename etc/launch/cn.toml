@@ -10,3 +10,12 @@ port-base = 18000
 
 [malloc]
 check-fraction = 65536
+
+[[fileservice]]
+name = "SHARED"
+backend = "DISK"
+data-dir = "mo-data/shared"
+
+[fileservice.cache]
+memory-capacity = "6GB"
+disk-path = "mo-data/file-service-cache"

@@ -43,7 +43,8 @@ var (
 		"inner_product":   "spherical_distance",
 		"cosine_distance": "spherical_distance",
 	}
-	textType = types.T_text.ToType() // return type of @probe_limit
+	textType  = types.T_text.ToType()    // return type of @probe_limit
+	floatType = types.T_float64.ToType() // l2_distance
 )
 
 // You replace Sort Node with a new Project Node
@@ -77,6 +78,7 @@ func (builder *QueryBuilder) applyIndicesForSortUsingVectorIndex(nodeID int32, p
 	idxTags["meta.scan"] = builder.genNewTag()
 	idxTags["centroids.scan"] = builder.genNewTag()
 	idxTags["entries.scan"] = builder.genNewTag()
+	idxTags["entries.project"] = builder.genNewTag()
 	// TODO: plan node should hold snapshot info and account info
 	//idxObjRefs[0], idxTableDefs[0] = builder.compCtx.Resolve(scanNode.ObjRef.SchemaName, multiTableIndexWithSortDistFn.IndexDefs[catalog.SystemSI_IVFFLAT_TblType_Metadata].IndexTableName, *scanNode.ScanTS)
 	//idxObjRefs[1], idxTableDefs[1] = builder.compCtx.Resolve(scanNode.ObjRef.SchemaName, multiTableIndexWithSortDistFn.IndexDefs[catalog.SystemSI_IVFFLAT_TblType_Centroids].IndexTableName, *scanNode.ScanTS)
@@ -147,8 +149,8 @@ func (builder *QueryBuilder) applyIndicesForSortUsingVectorIndex(nodeID int32, p
 					Typ: idxTableDefs[2].Cols[2].Typ,
 					Expr: &plan.Expr_Col{
 						Col: &plan.ColRef{
-							RelPos: idxTags["entries.scan"],
-							ColPos: 2, // entries.pk
+							RelPos: idxTags["entries.project"],
+							ColPos: 0, // entries.pk
 						},
 					},
 				}
@@ -156,8 +158,8 @@ func (builder *QueryBuilder) applyIndicesForSortUsingVectorIndex(nodeID int32, p
 					Typ: idxTableDefs[2].Cols[3].Typ,
 					Expr: &plan.Expr_Col{
 						Col: &plan.ColRef{
-							RelPos: idxTags["entries.scan"],
-							ColPos: 3, // entries.entry
+							RelPos: idxTags["entries.project"],
+							ColPos: 1, // entries.entry
 						},
 					},
 				}
@@ -430,7 +432,6 @@ func makeTblInnerJoinEntriesCentroidOnPK(builder *QueryBuilder, bindCtx *BindCon
 	scanNode *plan.Node, entriesJoinCentroids int32, pkPos int32) int32 {
 
 	entriesOriginPkEqTblPk, _ := BindFuncExprImplByPlanExpr(builder.GetContext(), "=", []*Expr{
-
 		{
 			Typ: idxTableDefs[2].Cols[2].Typ,
 			Expr: &plan.Expr_Col{
@@ -479,14 +480,50 @@ func makeEntriesOrderByL2Distance(builder *QueryBuilder, bindCtx *BindContext,
 		},
 		fn.Args[1], // lit
 	})
+
+	projectL2DistanceAlongWithPrevJoin := builder.appendNode(&plan.Node{
+		NodeType: plan.Node_PROJECT,
+		Children: []int32{entriesJoinCentroids},
+		ProjectList: []*Expr{
+			{
+				Typ: idxTableDefs[2].Cols[2].Typ,
+				Expr: &plan.Expr_Col{
+					Col: &plan.ColRef{
+						RelPos: idxTags["entries.scan"],
+						ColPos: 2, // entries.pk
+					},
+				},
+			},
+			{
+				Typ: idxTableDefs[2].Cols[3].Typ,
+				Expr: &plan.Expr_Col{
+					Col: &plan.ColRef{
+						RelPos: idxTags["entries.scan"],
+						ColPos: 3, // entries.entry
+					},
+				},
+			},
+			l2DistanceColLit,
+		},
+		BindingTags: []int32{idxTags["entries.project"]},
+	}, bindCtx)
+
 	sortTblByL2Distance := builder.appendNode(&plan.Node{
 		NodeType: plan.Node_SORT,
-		Children: []int32{entriesJoinCentroids},
+		Children: []int32{projectL2DistanceAlongWithPrevJoin},
 		Limit:    DeepCopyExpr(sortNode.Limit),
 		Offset:   DeepCopyExpr(sortNode.Offset),
 		OrderBy: []*OrderBySpec{
 			{
-				Expr: l2DistanceColLit,
+				Expr: &plan.Expr{
+					Typ: makePlan2Type(&floatType),
+					Expr: &plan.Expr_Col{
+						Col: &plan.ColRef{
+							RelPos: idxTags["entries.project"],
+							ColPos: 2, // entries.l2_distance
+						},
+					},
+				},
 				Flag: sortDirection,
 			},
 		},
