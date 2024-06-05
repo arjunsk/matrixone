@@ -15,6 +15,7 @@
 package plan
 
 import (
+	"github.com/matrixorigin/matrixone/pkg/catalog"
 	"github.com/matrixorigin/matrixone/pkg/common/runtime"
 	"github.com/matrixorigin/matrixone/pkg/container/types"
 	"github.com/matrixorigin/matrixone/pkg/pb/plan"
@@ -53,6 +54,56 @@ func (builder *QueryBuilder) generateRuntimeFilters(nodeID int32) {
 
 	for _, childID := range node.Children {
 		builder.generateRuntimeFilters(childID)
+	}
+
+	// In Master Index, INNER Joins in the query plan should not have runtime filters, as set
+	// input rows to 0, which is not expected.
+	// https://github.com/matrixorigin/matrixone/issues/14876#issuecomment-2148824892
+	if node.JoinType == plan.Node_INNER && len(node.Children) == 2 {
+
+		leftChild := builder.qry.Nodes[node.Children[0]]
+		rightChild := builder.qry.Nodes[node.Children[1]]
+
+		if leftChild.TableDef == nil || leftChild.TableDef.Cols == nil || len(leftChild.TableDef.Cols) != 2 {
+			return
+		}
+
+		if rightChild.TableDef == nil || rightChild.TableDef.Cols == nil || len(rightChild.TableDef.Cols) != 2 {
+			return
+		}
+
+		// In Master Index, both the children are from the same master index table.
+		if leftChild.TableDef.Name != rightChild.TableDef.Name {
+			return
+		}
+
+		// Check if left child is a master/secondary index table
+		leftIsSecondaryIndexOrMasterIndexHiddenTable := true
+		for _, column := range leftChild.TableDef.Cols {
+			if column.Name == catalog.MasterIndexTablePrimaryColName {
+				continue
+			}
+			if column.Name == catalog.MasterIndexTableIndexColName {
+				continue
+			}
+			leftIsSecondaryIndexOrMasterIndexHiddenTable = false
+		}
+
+		// Check if right child is a master/secondary index table
+		rightIsSecondaryIndexOrMasterIndexHiddenTable := true
+		for _, column := range rightChild.TableDef.Cols {
+			if column.Name == catalog.MasterIndexTablePrimaryColName {
+				continue
+			}
+			if column.Name == catalog.MasterIndexTableIndexColName {
+				continue
+			}
+			rightIsSecondaryIndexOrMasterIndexHiddenTable = false
+		}
+
+		if leftIsSecondaryIndexOrMasterIndexHiddenTable && rightIsSecondaryIndexOrMasterIndexHiddenTable {
+			return
+		}
 	}
 
 	// Build runtime filters only for broadcast join
