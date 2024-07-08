@@ -656,6 +656,14 @@ func (v *Vector) PreExtendArea(rows int, mp *mpool.MPool) error {
 	}
 
 	vlen := v.typ.TypeSize() * rows
+	if v.typ.Oid.IsArrayRelate() {
+		switch v.typ.Oid {
+		case types.T_array_float32:
+			vlen = 4 * int(v.typ.Width) * rows
+		case types.T_array_float64:
+			vlen = 8 * int(v.typ.Width) * rows
+		}
+	}
 	area1 := v.GetArea()
 	voff := len(area1)
 	if voff+vlen > cap(area1) {
