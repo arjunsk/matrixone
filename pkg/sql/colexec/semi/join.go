@@ -199,7 +199,7 @@ func (ctr *container) probe(bat *batch.Batch, ap *Argument, proc *process.Proces
 	itr := ctr.mp.NewIterator()
 
 	rowCountIncrease := 0
-	eligible := make([]uint8, 0, hashmap.UnitLimit)
+	eligible := make([]int32, 0, hashmap.UnitLimit)
 	for i := 0; i < count; i += hashmap.UnitLimit {
 		n := count - i
 		if n > hashmap.UnitLimit {
@@ -265,12 +265,16 @@ func (ctr *container) probe(bat *batch.Batch, ap *Argument, proc *process.Proces
 					continue
 				}
 			}
-			eligible = append(eligible, uint8(i+k))
+			eligible = append(eligible, int32(i+k))
 			rowCountIncrease++
 		}
 		for j, pos := range ap.Result {
-			//			if err := ctr.rbat.Vecs[j].UnionBatch(bat.Vecs[pos], 0, bat.RowCount(), eligible, proc.Mp()); err != nil {
-			if err := ctr.rbat.Vecs[j].UnionBatch(bat.Vecs[pos], 0, bat.RowCount(), nil, proc.Mp()); err != nil {
+			if err := ctr.rbat.Vecs[j].PreExtend(bat.Vecs[pos].Length(), proc.Mp()); err != nil {
+				return err
+			}
+		}
+		for j, pos := range ap.Result {
+			if err := ctr.rbat.Vecs[j].Union(bat.Vecs[pos], eligible, proc.Mp()); err != nil {
 				return err
 			}
 		}
