@@ -269,7 +269,7 @@ func (ctr *container) probe(bat *batch.Batch, ap *Argument, proc *process.Proces
 			rowCountIncrease++
 		}
 		for j, pos := range ap.Result {
-			if err := ctr.rbat.Vecs[j].PreExtend(bat.Vecs[pos].Length(), proc.Mp()); err != nil {
+			if err := ctr.rbat.Vecs[j].PreExtendArea(bat.Vecs[pos].Length(), proc.Mp()); err != nil {
 				return err
 			}
 		}

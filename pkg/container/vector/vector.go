@@ -645,6 +645,31 @@ func (v *Vector) PreExtend(rows int, mp *mpool.MPool) error {
 	return extend(v, rows, mp)
 }
 
+// PreExtendArea use to expand the capacity of the vector
+func (v *Vector) PreExtendArea(rows int, mp *mpool.MPool) error {
+	if v.class == CONSTANT {
+		return nil
+	}
+
+	if err := extend(v, rows, mp); err != nil {
+		return err
+	}
+
+	vlen := v.typ.TypeSize() * rows
+	area1 := v.GetArea()
+	voff := len(area1)
+	if voff+vlen > cap(area1) {
+		var err error
+		area1, err = mp.Grow(area1, voff+vlen)
+		if err != nil {
+			return err
+		}
+		v.SetArea(area1)
+	}
+
+	return nil
+}
+
 // Dup use to copy an identical vector
 func (v *Vector) Dup(mp *mpool.MPool) (*Vector, error) {
 	if v.IsConstNull() {
