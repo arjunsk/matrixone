@@ -655,7 +655,9 @@ func (mp *MPool) reAlloc(old []byte, sz int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	copy(ret, old)
+	if old != nil {
+		copy(ret, old)
+	}
 	mp.Free(old)
 	return ret, nil
 }
