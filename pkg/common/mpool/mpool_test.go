@@ -116,6 +116,16 @@ func TestMP(t *testing.T) {
 
 }
 
+func TestMpoolGrow(t *testing.T) {
+	m := MustNewZero()
+	temp, _ := m.Alloc(10)
+	d1, err := m.Grow(temp, 5024)
+	require.NoError(t, err)
+
+	require.Equal(t, 0, len(d1))
+	//require.Equal(t, 1024, cap(d1))
+}
+
 func TestMpoolReAllocate(t *testing.T) {
 	m := MustNewZero()
 	d1, err := m.Alloc(1023)

@@ -655,6 +655,7 @@ func (v *Vector) PreExtendArea(rows int, mp *mpool.MPool) error {
 		return err
 	}
 
+	// get required size
 	vlen := v.typ.TypeSize() * rows
 	if v.typ.Oid.IsArrayRelate() {
 		switch v.typ.Oid {
@@ -664,16 +665,32 @@ func (v *Vector) PreExtendArea(rows int, mp *mpool.MPool) error {
 			vlen = 8 * int(v.typ.Width) * rows
 		}
 	}
+
+	// check if required size is already satisfied
 	area1 := v.GetArea()
 	voff := len(area1)
-	if voff+vlen > cap(area1) {
-		var err error
-		area1, err = mp.Grow(area1, voff+vlen)
-		if err != nil {
-			return err
-		}
-		v.SetArea(area1)
+	if voff+vlen <= cap(area1) {
+		return nil
 	}
+
+	// grow area
+	var err error
+	oldSz := len(area1)
+	area1, err = mp.Grow(area1, voff+vlen)
+	area1 = area1[:oldSz]
+	if err != nil {
+		return err
+	}
+	v.SetArea(area1)
+
+	// grow varlena
+	//var va types.Varlena
+	//va.SetOffsetLen(uint32(voff), uint32(vlen))
+	//var col []types.Varlena
+	//ToSlice(v, &col)
+	//for i := v.length; i < v.length; i++ {
+	//	col[i] = va
+	//}
 
 	return nil
 }
