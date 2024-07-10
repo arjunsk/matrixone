@@ -275,6 +275,73 @@ func SubVectorWith3Args[T types.RealNumbers](ivecs []*vector.Vector, result vect
 	return nil
 }
 
+func LoadStageFile(ivecs []*vector.Vector, result vector.FunctionResultWrapper, proc *process.Process, length int, selectList *FunctionSelectList) (err error) {
+
+	rs := vector.MustFunctionResult[types.Varlena](result)
+	vs := vector.GenerateFunctionStrParameter(ivecs[0])
+
+	// TODO: add "where stage_status='enabled'"
+	getAllStagesSql := fmt.Sprintf("select url, stage_credentials from `%s`.`%s`;", "mo_catalog", "mo_stages")
+	//TODO: Fix this to return Array of ResultSet
+	values, err := proc.GetSessionInfo().SqlHelper.ExecSql(getAllStagesSql)
+	if err != nil {
+		return err
+	}
+	if values == nil {
+		return moerr.NewInternalError(proc.Ctx, "failed to get mo_catalog.mo_stages.")
+	}
+
+	stageUrl, stageCred := values[0].(string), values[1].(string)
+
+	for i := uint64(0); i < uint64(length); i++ {
+		stageFile, null1 := vs.GetStrValue(i)
+		if null1 {
+			if err = rs.AppendBytes(nil, true); err != nil {
+				return err
+			}
+			continue
+		}
+
+		var notFound bool
+		if strings.HasPrefix(string(stageFile), stageUrl) {
+			fs := proc.GetFileService()
+
+			//s3,<endpoint>,<region>,<bucket>,<key>,<secret>,<prefix>
+			newStageFile := stageFile
+
+			r, err := ReadFromFile(string(stageFile), fs)
+			if err != nil {
+				return err
+			}
+			defer r.Close()
+			ctx, err := io.ReadAll(r)
+			if err != nil {
+				return err
+			}
+			if len(ctx) > 65536 /*blob size*/ {
+				return moerr.NewInternalError(proc.Ctx, "Data too long for blob")
+			}
+			if len(ctx) == 0 {
+				if err = rs.AppendBytes(nil, true); err != nil {
+					return err
+				}
+				return nil
+			}
+			if err = rs.AppendBytes(ctx, false); err != nil {
+				return err
+			}
+			notFound = true
+		}
+
+		if notFound {
+			if err = rs.AppendBytes(nil, true); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func StringSingle(val []byte) uint8 {
 	if len(val) == 0 {
 		return 0
