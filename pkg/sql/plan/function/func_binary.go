@@ -3003,11 +3003,47 @@ func L2DistanceArray[T types.RealNumbers](ivecs []*vector.Vector, result vector.
 }
 
 func L2DistanceSqArray[T types.RealNumbers](ivecs []*vector.Vector, result vector.FunctionResultWrapper, proc *process.Process, length int, selectList *FunctionSelectList) error {
-	return opBinaryBytesBytesToFixedWithErrorCheck[float64](ivecs, result, proc, length, func(v1, v2 []byte) (out float64, err error) {
-		_v1 := types.BytesToArray[T](v1)
-		_v2 := types.BytesToArray[T](v2)
-		return moarray.L2DistanceSq[T](_v1, _v2)
-	}, selectList)
+	p1 := vector.GenerateFunctionStrParameter(ivecs[0])
+	p2 := vector.GenerateFunctionStrParameter(ivecs[1])
+	rs := vector.MustFunctionResult[float64](result)
+
+	containsNulls := false
+	_v1 := make([][]T, length)
+	_v2 := make([][]T, length)
+	for i := uint64(0); i < uint64(length); i++ {
+		v1, null1 := p1.GetStrValue(i)
+		v2, null2 := p2.GetStrValue(i)
+		if null1 || null2 {
+			containsNulls = true
+			break
+		}
+		_v1[i] = types.BytesToArray[T](v1)
+		_v2[i] = types.BytesToArray[T](v2)
+	}
+
+	if containsNulls {
+		// Slow path
+		return opBinaryBytesBytesToFixedWithErrorCheck[float64](ivecs, result, proc, length, func(v1, v2 []byte) (out float64, err error) {
+			_v1 := types.BytesToArray[T](v1)
+			_v2 := types.BytesToArray[T](v2)
+			return moarray.L2DistanceSq[T](_v1, _v2)
+		}, selectList)
+	}
+
+	// Fast Path
+	res, err := moarray.L2DistanceSqBatch[T](_v1, _v2)
+	if err != nil {
+		return err
+	}
+
+	for i := uint64(0); i < uint64(length); i++ {
+		if err = rs.Append(res[i], false); err != nil {
+			return err
+		}
+	}
+
+	return nil
+
 }
 
 func CosineDistanceArray[T types.RealNumbers](ivecs []*vector.Vector, result vector.FunctionResultWrapper, proc *process.Process, length int, selectList *FunctionSelectList) error {
