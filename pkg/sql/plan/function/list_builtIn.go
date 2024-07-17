@@ -5488,7 +5488,7 @@ var supportedOthersBuiltIns = []FuncNew{
 			{
 				overloadId: 0,
 				volatile:   true,
-				args:       []types.T{types.T_varchar},
+				args:       []types.T{types.T_varchar, types.T_int64, types.T_int64},
 				retType: func(parameters []types.Type) types.Type {
 					return types.T_text.ToType()
 				},

@@ -506,7 +506,7 @@ func JsonUnquote(ivecs []*vector.Vector, result vector.FunctionResultWrapper, pr
 	return opUnaryBytesToStrWithErrorCheck(ivecs, result, proc, length, fSingle, selectList)
 }
 
-func ReadFromFile(Filepath string, fs fileservice.FileService) (io.ReadCloser, error) {
+func ReadFromFile(Filepath string, fs fileservice.FileService, offset, size int64) (io.ReadCloser, error) {
 	fs, readPath, err := fileservice.GetForETL(context.TODO(), fs, Filepath)
 	if fs == nil || err != nil {
 		return nil, err
@@ -517,8 +517,8 @@ func ReadFromFile(Filepath string, fs fileservice.FileService) (io.ReadCloser, e
 		FilePath: readPath,
 		Entries: []fileservice.IOEntry{
 			0: {
-				Offset:            0,
-				Size:              -1,
+				Offset:            offset, //0 - default
+				Size:              size,   //-1 - default
 				ReadCloserForRead: &r,
 			},
 		},
@@ -530,39 +530,96 @@ func ReadFromFile(Filepath string, fs fileservice.FileService) (io.ReadCloser, e
 	return r, nil
 }
 
-// Too confused.
+// LoadFile reads a file from the file service and returns the content as a blob.
 func LoadFile(ivecs []*vector.Vector, result vector.FunctionResultWrapper, proc *process.Process, length int, selectList *FunctionSelectList) error {
 	rs := vector.MustFunctionResult[types.Varlena](result)
-	ivec := vector.GenerateFunctionStrParameter(ivecs[0])
-	Filepath, null := ivec.GetStrValue(0)
-	if null {
-		if err := rs.AppendBytes(nil, true); err != nil {
-			return err
-		}
-		return nil
-	}
-	fs := proc.GetFileService()
-	r, err := ReadFromFile(string(Filepath), fs)
+
+	filePathVec := vector.GenerateFunctionStrParameter(ivecs[0])
+	offsetArg, _ := vector.GenerateFunctionFixedTypeParameter[int64](ivecs[1]).GetValue(0)
+	lenArg, _ := vector.GenerateFunctionFixedTypeParameter[int64](ivecs[2]).GetValue(0)
+
+	getAllStagesSql := fmt.Sprintf("select url, stage_credentials from `%s`.`%s`;", "mo_catalog", "mo_stages")
+	_values, err := proc.GetSessionInfo().SqlHelper.ExecSql(getAllStagesSql)
 	if err != nil {
 		return err
-	}
-	defer r.Close()
-	ctx, err := io.ReadAll(r)
-	if err != nil {
-		return err
-	}
-	if len(ctx) > 65536 /*blob size*/ {
-		return moerr.NewInternalError(proc.Ctx, "Data too long for blob")
-	}
-	if len(ctx) == 0 {
-		if err = rs.AppendBytes(nil, true); err != nil {
-			return err
-		}
-		return nil
 	}
 
-	if err = rs.AppendBytes(ctx, false); err != nil {
-		return err
+	for i := uint64(0); i < uint64(length); i++ {
+		filePath, null1 := filePathVec.GetStrValue(i)
+		if null1 {
+			if err = rs.AppendBytes(nil, true); err != nil {
+				return err
+			}
+			continue
+		}
+
+		var notFound bool
+		for _, value := range _values {
+			stagePrefix, stageCred := string(value[0].([]byte)), string(value[1].([]byte))
+			if strings.HasPrefix(string(filePath), stagePrefix) {
+
+				fs := proc.GetFileService()
+				var fsFilePath string
+				objectPath := filePath[len(stagePrefix):]
+				switch fs.(type) {
+				case *fileservice.S3FS:
+					//s3,<endpoint>,<region>,<bucket>,<key>,<secret>,<prefix>
+					endPoint := "https://s3.amazonaws.com"
+					region := "us-east-1"
+					bucket := "mo"
+					key := stageCred
+					secret := stageCred
+					prefix := ""
+					fsFilePath = fmt.Sprintf("s3,%s,%s,%s,%s,%s,%s,%s:%s", endPoint, region, bucket, key, secret, prefix, objectPath)
+
+				case *fileservice.LocalFS:
+					fsFilePath = fmt.Sprintf("%s", objectPath)
+				}
+
+				r, err := ReadFromFile(fsFilePath, fs, offsetArg, lenArg)
+				if err != nil {
+					return err
+				}
+				ctx, err := io.ReadAll(r)
+				if err != nil {
+					return err
+				}
+				switch "type" {
+				case ".txt":
+					ctx = []byte(strings.TrimSuffix(string(ctx), "\n"))
+				case ".pdf":
+					ctx = []byte(base64.StdEncoding.EncodeToString(ctx))
+				}
+
+				if len(ctx) > 65536 /*blob size*/ {
+					return moerr.NewInternalError(proc.Ctx, "Data too long for blob")
+				}
+				if len(ctx) == 0 {
+					if err = rs.AppendBytes(nil, true); err != nil {
+						return err
+					}
+					return nil
+				}
+				if err = rs.AppendBytes(ctx, false); err != nil {
+					return err
+				}
+				notFound = true
+
+				err = r.Close()
+				if err != nil {
+					return err
+				}
+
+				break
+			}
+
+		}
+
+		if notFound {
+			if err = rs.AppendBytes(nil, true); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
