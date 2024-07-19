@@ -14,12 +14,43 @@
 
 package moarray
 
+/*
+#include <stdlib.h>
+// C function to calculate the squared L2 distance between two arrays of floats
+float L2DistanceSqFloat32(int numVec, int dim, float *ax, float *bx, float *result) {
+    for (int i = 0; i < numVec; i++) {
+        float distance = 0.0;
+        for (int j = 0; j < dim; j++) {
+            float diff = ax[i * dim + j] - bx[i * dim + j];
+            distance += diff * diff;
+        }
+        result[i] = distance;
+    }
+    return 0;
+}
+
+// C function to calculate the squared L2 distance between two arrays of doubles
+double L2DistanceSqFloat64(int numVec, int dim, double *ax, double *bx, double *result) {
+    for (int i = 0; i < numVec; i++) {
+        double distance = 0.0;
+        for (int j = 0; j < dim; j++) {
+            double diff = ax[i * dim + j] - bx[i * dim + j];
+            distance += diff * diff;
+        }
+        result[i] = distance;
+    }
+    return 0;
+}
+*/
+import "C"
 import (
+	"fmt"
 	"github.com/matrixorigin/matrixone/pkg/common/moerr"
 	"github.com/matrixorigin/matrixone/pkg/container/types"
 	"github.com/matrixorigin/matrixone/pkg/vectorize/momath"
 	"gonum.org/v1/gonum/mat"
 	"math"
+	"unsafe"
 )
 
 // These functions are exposed externally via SQL API.
@@ -134,6 +165,56 @@ func L2DistanceSq[T types.RealNumbers](v1, v2 []T) (float64, error) {
 		sumOfSquares += difference * difference
 	}
 	return float64(sumOfSquares), nil
+}
+
+func flatten[T types.RealNumbers](v [][]T) []T {
+	flat := make([]T, 0, len(v)*len(v[0]))
+	for _, vec := range v {
+		flat = append(flat, vec...)
+	}
+	return flat
+}
+
+func L2DistanceSqBatch[T types.RealNumbers](v1, v2 [][]T) ([]float64, error) {
+	if len(v1) != len(v2) {
+		// batch dimension mismatch
+		return nil, fmt.Errorf("batch dimension mismatch: %d != %d", len(v1), len(v2))
+	}
+
+	numVec := len(v1)
+	dim := len(v1[0])
+
+	for i := range v1 {
+		if len(v1[i]) != len(v2[i]) {
+			// vector dimension mismatch
+			return nil, fmt.Errorf("vector dimension mismatch at index %d: %d != %d", i, len(v1[i]), len(v2[i]))
+		}
+	}
+
+	flatV1 := flatten(v1)
+	flatV2 := flatten(v2)
+	distances := make([]float64, numVec)
+
+	switch any(v1).(type) {
+	case [][]float32:
+		floatDistances := make([]float32, numVec)
+		cAx := (*C.float)(unsafe.Pointer(&flatV1[0]))
+		cBx := (*C.float)(unsafe.Pointer(&flatV2[0]))
+		cResult := (*C.float)(unsafe.Pointer(&floatDistances[0]))
+		C.L2DistanceSqFloat32(C.int(numVec), C.int(dim), cAx, cBx, cResult)
+		for i, dist := range floatDistances {
+			distances[i] = float64(dist)
+		}
+	case [][]float64:
+		cAx := (*C.double)(unsafe.Pointer(&flatV1[0]))
+		cBx := (*C.double)(unsafe.Pointer(&flatV2[0]))
+		cResult := (*C.double)(unsafe.Pointer(&distances[0]))
+		C.L2DistanceSqFloat64(C.int(numVec), C.int(dim), cAx, cBx, cResult)
+	default:
+		return nil, fmt.Errorf("unsupported element type %T", v1)
+	}
+
+	return distances, nil
 }
 
 func CosineDistance[T types.RealNumbers](v1, v2 []T) (float64, error) {
