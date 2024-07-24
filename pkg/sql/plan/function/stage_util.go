@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package plan
+package function
 
 import (
 	//"context"
 	"encoding/csv"
 	"fmt"
+	"github.com/matrixorigin/matrixone/pkg/common/moerr"
 	"path/filepath"
 	"strconv"
 
@@ -25,14 +26,15 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/matrixorigin/matrixone/pkg/common/moerr"
-	//moruntime "github.com/matrixorigin/matrixone/pkg/common/runtime"
+	//"github.com/matrixorigin/matrixone/pkg/common/moerr"
+	moruntime "github.com/matrixorigin/matrixone/pkg/common/runtime"
 	"github.com/matrixorigin/matrixone/pkg/logutil"
-	"github.com/matrixorigin/matrixone/pkg/sql/parsers/tree"
 	"github.com/matrixorigin/matrixone/pkg/vm/process"
+	//"github.com/matrixorigin/matrixone/pkg/sql/parsers/tree"
 	//"github.com/matrixorigin/matrixone/pkg/util/executor"
 	"github.com/matrixorigin/matrixone/pkg/container/vector"
 	"github.com/matrixorigin/matrixone/pkg/fileservice"
+	"github.com/matrixorigin/matrixone/pkg/util/executor"
 )
 
 const STAGE_PROTOCOL = "stage"
@@ -55,7 +57,7 @@ type StageDef struct {
 
 func (s *StageDef) expandSubStage(stagemap map[StageKey]StageDef, defaultdb string) (StageDef, error) {
 	if s.Url.Scheme == STAGE_PROTOCOL {
-		dbname, stagename, prefix, query, err := parseStageUrl(s.Url)
+		dbname, stagename, prefix, query, err := ParseStageUrl(s.Url)
 		if err != nil {
 			return StageDef{}, err
 		}
@@ -86,7 +88,7 @@ func (s *StageDef) expandSubStage(stagemap map[StageKey]StageDef, defaultdb stri
 func (s *StageDef) ToPath() (mopath string, query string, err error) {
 
 	if s.Url.Scheme == S3_PROTOCOL {
-		bucket, prefix, query := parseS3Url(s.Url)
+		bucket, prefix, query := ParseS3Url(s.Url)
 
 		// TODO: Decode credentials
 		aws_key_id := "aws_key_id"
@@ -126,6 +128,23 @@ func getS3ServiceFromProvider(provider string) (string, error) {
 	default:
 		return "", fmt.Errorf("provider %s not supported", provider)
 	}
+}
+
+func runSql(proc *process.Process, sql string) (executor.Result, error) {
+	v, ok := moruntime.ProcessLevelRuntime().GetGlobalVariables(moruntime.InternalSQLExecutor)
+	if !ok {
+		panic("missing lock service")
+	}
+	exec := v.(executor.SQLExecutor)
+	opts := executor.Options{}.
+		// All runSql and runSqlWithResult is a part of input sql, can not incr statement.
+		// All these sub-sql's need to be rolled back and retried en masse when they conflict in pessimistic mode
+		WithDisableIncrStatement().
+		WithTxn(proc.GetTxnOperator()).
+		WithDatabase(proc.GetSessionInfo().Database).
+		WithTimeZone(proc.GetSessionInfo().TimeZone).
+		WithAccountID(proc.GetSessionInfo().AccountId)
+	return exec.Exec(proc.Ctx, sql, opts)
 }
 
 func StageLoadCatalog(proc *process.Process) (stagemap map[StageKey]StageDef, err error) {
@@ -174,7 +193,7 @@ func StageLoadCatalog(proc *process.Process) (stagemap map[StageKey]StageDef, er
 
 func UrlToPath(furl string, stagemap map[StageKey]StageDef, proc *process.Process) (path string, query string, err error) {
 
-	s, err := urlToStageDef(furl, stagemap, proc)
+	s, err := UrlToStageDef(furl, stagemap, proc)
 	if err != nil {
 		return "", "", err
 	}
@@ -182,7 +201,7 @@ func UrlToPath(furl string, stagemap map[StageKey]StageDef, proc *process.Proces
 	return s.ToPath()
 }
 
-func parseStageUrl(u *url.URL) (dbname, stagename, prefix, query string, err error) {
+func ParseStageUrl(u *url.URL) (dbname, stagename, prefix, query string, err error) {
 	if u.Scheme != STAGE_PROTOCOL {
 		return "", "", "", "", fmt.Errorf("URL protocol is not stage://")
 	}
@@ -213,14 +232,14 @@ func parseStageUrl(u *url.URL) (dbname, stagename, prefix, query string, err err
 	return
 }
 
-func parseS3Url(u *url.URL) (bucket, fpath, query string) {
+func ParseS3Url(u *url.URL) (bucket, fpath, query string) {
 	bucket = u.Host
 	fpath = u.Path
 	query = u.RawQuery
 	return
 }
 
-func urlToStageDef(furl string, stagemap map[StageKey]StageDef, proc *process.Process) (s StageDef, err error) {
+func UrlToStageDef(furl string, stagemap map[StageKey]StageDef, proc *process.Process) (s StageDef, err error) {
 
 	aurl, err := url.Parse(furl)
 	if err != nil {
@@ -231,7 +250,7 @@ func urlToStageDef(furl string, stagemap map[StageKey]StageDef, proc *process.Pr
 		return StageDef{}, fmt.Errorf("URL is not stage URL")
 	}
 
-	dbname, stagename, subpath, query, err := parseStageUrl(aurl)
+	dbname, stagename, subpath, query, err := ParseStageUrl(aurl)
 	if err != nil {
 		return StageDef{}, fmt.Errorf("Parse Error: Invalid stage URL")
 	}
@@ -262,116 +281,6 @@ func urlToStageDef(furl string, stagemap map[StageKey]StageDef, proc *process.Pr
 	logutil.Infof("JoinPath Url=%s", exs.Url)
 
 	return exs, nil
-}
-
-func GetFilePathFromParam(param *tree.ExternParam) string {
-	fpath := param.Filepath
-	for i := 0; i < len(param.Option); i += 2 {
-		name := strings.ToLower(param.Option[i])
-		if name == "filepath" {
-			fpath = param.Option[i+1]
-			break
-		}
-	}
-
-	return fpath
-}
-
-func InitStageS3Param(param *tree.ExternParam, s StageDef) error {
-
-	param.ScanType = tree.S3
-	param.S3Param = &tree.S3Parameter{}
-
-	if len(s.Url.RawQuery) > 0 {
-		return fmt.Errorf("s3:// Query don't support in ExternParam.S3Param")
-	}
-
-	if s.Url.Scheme != S3_PROTOCOL {
-		return fmt.Errorf("protocol is not S3")
-	}
-
-	bucket, prefix, _ := parseS3Url(s.Url)
-
-	param.S3Param.Endpoint = "endpoint"
-	param.S3Param.Region = "region"
-	param.S3Param.APIKey = "aws_key_id"
-	param.S3Param.APISecret = "aws_secret_key"
-	param.S3Param.Bucket = bucket
-	param.S3Param.Provider = "minio"
-
-	param.Filepath = prefix
-	param.CompressType = "compression"
-
-	for i := 0; i < len(param.Option); i += 2 {
-		switch strings.ToLower(param.Option[i]) {
-		case "format":
-			format := strings.ToLower(param.Option[i+1])
-			if format != tree.CSV && format != tree.JSONLINE {
-				return moerr.NewBadConfig(param.Ctx, "the format '%s' is not supported", format)
-			}
-			param.Format = format
-		case "jsondata":
-			jsondata := strings.ToLower(param.Option[i+1])
-			if jsondata != tree.OBJECT && jsondata != tree.ARRAY {
-				return moerr.NewBadConfig(param.Ctx, "the jsondata '%s' is not supported", jsondata)
-			}
-			param.JsonData = jsondata
-			param.Format = tree.JSONLINE
-
-		default:
-			return moerr.NewBadConfig(param.Ctx, "the keyword '%s' is not support", strings.ToLower(param.Option[i]))
-		}
-	}
-
-	if param.Format == tree.JSONLINE && len(param.JsonData) == 0 {
-		return moerr.NewBadConfig(param.Ctx, "the jsondata must be specified")
-	}
-	if len(param.Format) == 0 {
-		param.Format = tree.CSV
-	}
-
-	return nil
-
-}
-
-func InitInfileOrStageParam(param *tree.ExternParam, proc *process.Process) error {
-
-	fpath := GetFilePathFromParam(param)
-
-	if !strings.HasPrefix(fpath, STAGE_PROTOCOL+"://") {
-		return InitInfileParam(param)
-	}
-
-	stagemap, err := StageLoadCatalog(proc)
-	if err != nil {
-		return err
-	}
-
-	s, err := urlToStageDef(fpath, stagemap, proc)
-	if err != nil {
-		return err
-	}
-
-	if len(s.Url.RawQuery) > 0 {
-		return fmt.Errorf("Invalid URL: query not supported in ExternParam")
-	}
-
-	if s.Url.Scheme == S3_PROTOCOL {
-		return InitStageS3Param(param, s)
-	} else if s.Url.Scheme == FILE_PROTOCOL {
-
-		err := InitInfileParam(param)
-		if err != nil {
-			return err
-		}
-
-		param.Filepath = s.Url.Path
-
-	} else {
-		return fmt.Errorf("invalid URL: protocol %s not supported", s.Url.Scheme)
-	}
-
-	return nil
 }
 
 func GetMoUrlFromDatalink(fpath string, proc *process.Process) (string, []int, string, error) {
@@ -427,7 +336,7 @@ func GetMoUrlFromDatalink(fpath string, proc *process.Process) (string, []int, s
 			return "", nil, "", err
 		}
 
-		s, err := urlToStageDef(fpath, stagemap, proc)
+		s, err := UrlToStageDef(fpath, stagemap, proc)
 		if err != nil {
 			return "", nil, "", err
 		}

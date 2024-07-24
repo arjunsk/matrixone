@@ -22,7 +22,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/matrixorigin/matrixone/pkg/common/util"
-	"github.com/matrixorigin/matrixone/pkg/sql/plan"
 	"io"
 	"math"
 	"runtime"
@@ -590,7 +589,7 @@ func LoadFileDatalink(ivecs []*vector.Vector, result vector.FunctionResultWrappe
 		filePath := util.UnsafeBytesToString(_filePath)
 		fs := proc.GetFileService()
 
-		moUrl, offsetSize, ext, err := plan.GetMoUrlFromDatalink(filePath, proc)
+		moUrl, offsetSize, ext, err := GetMoUrlFromDatalink(filePath, proc)
 		if err != nil {
 			return err
 		}
