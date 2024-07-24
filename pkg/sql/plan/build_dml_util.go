@@ -17,6 +17,7 @@ package plan
 import (
 	"context"
 	"fmt"
+	"github.com/matrixorigin/matrixone/pkg/vm/process"
 	"strings"
 	"sync"
 
@@ -3794,12 +3795,11 @@ func adjustConstraintName(ctx context.Context, def *tree.ForeignKey) error {
 	return nil
 }
 
-func runSql(ctx CompilerContext, sql string) (executor.Result, error) {
+func runSql(proc *process.Process, sql string) (executor.Result, error) {
 	v, ok := moruntime.ProcessLevelRuntime().GetGlobalVariables(moruntime.InternalSQLExecutor)
 	if !ok {
 		panic("missing lock service")
 	}
-	proc := ctx.GetProcess()
 	exec := v.(executor.SQLExecutor)
 	opts := executor.Options{}.
 		// All runSql and runSqlWithResult is a part of input sql, can not incr statement.
@@ -3874,7 +3874,7 @@ func GetSqlForFkReferredTo(db, table string) string {
 func GetFkReferredTo(ctx CompilerContext, db, table string) (map[FkReferKey]map[string][]*FkReferDef, error) {
 	//exclude fk self reference
 	sql := GetSqlForFkReferredTo(db, table)
-	res, err := runSql(ctx, sql)
+	res, err := runSql(ctx.GetProcess(), sql)
 	if err != nil {
 		return nil, err
 	}
