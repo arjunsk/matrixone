@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/matrixorigin/matrixone/pkg/common/util"
+	"github.com/matrixorigin/matrixone/pkg/sql/plan"
 	"io"
 	"math"
 	"runtime"
@@ -578,16 +579,10 @@ func LoadFileDatalink(ivecs []*vector.Vector, result vector.FunctionResultWrappe
 
 	filePathVec := vector.GenerateFunctionStrParameter(ivecs[0])
 
-	getAllStagesSql := fmt.Sprintf("select stage_name, url, stage_credentials from `%s`.`%s`;", "mo_catalog", "mo_stages")
-	stageCols, err := proc.GetSessionInfo().SqlHelper.ExecSql(getAllStagesSql)
-	if err != nil {
-		return err
-	}
-
 	for i := uint64(0); i < uint64(length); i++ {
 		_filePath, null1 := filePathVec.GetStrValue(i)
 		if null1 {
-			if err = rs.AppendBytes(nil, true); err != nil {
+			if err := rs.AppendBytes(nil, true); err != nil {
 				return err
 			}
 			continue
@@ -595,52 +590,12 @@ func LoadFileDatalink(ivecs []*vector.Vector, result vector.FunctionResultWrappe
 		filePath := util.UnsafeBytesToString(_filePath)
 		fs := proc.GetFileService()
 
-		parts, params, ext, err := types.ParseDatalink(filePath)
+		moUrl, offsetSize, ext, err := plan.GetMoUrlFromDatalink(filePath, proc)
 		if err != nil {
 			return err
 		}
-		var offset, size int
-		offset, _ = strconv.Atoi(params["offset"])
-		size, _ = strconv.Atoi(params["size"])
 
-		var fileServiceFilePath string
-		var filePathResolved bool
-		switch parts[0] {
-		case "file":
-			fileServiceFilePath, err = types.ConvertFsDatalinkToFsPath(filePath)
-			if err != nil {
-				return err
-			}
-			filePathResolved = true
-		case "s3":
-			fileServiceFilePath, err = types.ConvertS3DatalinkToFsS3Url(filePath)
-			if err != nil {
-				return err
-			}
-			filePathResolved = true
-		case "stage":
-			for _, stageCol := range stageCols {
-				stageName := stageCol[0].(string)
-				stageUrl := stageCol[1].(string)
-				stageCredential := stageCol[2].(string)
-
-				if strings.EqualFold(stageName, parts[1]) {
-					fileServiceFilePath, err = types.ConvertStageDatalinkToFsUrl(stageUrl, stageCredential, parts[3])
-					if err != nil {
-						return err
-					}
-					filePathResolved = true
-				}
-			}
-		default:
-			// nothing to do here. Will be handled in "if !filePathResolved"
-		}
-
-		if !filePathResolved {
-			return moerr.NewInvalidInput(proc.Ctx, "unsupported datalink type: %s", parts[0])
-		}
-
-		r, err := ReadFromFileOffsetSize(fileServiceFilePath, fs, int64(offset), int64(size))
+		r, err := ReadFromFileOffsetSize(moUrl, fs, int64(offsetSize[0]), int64(offsetSize[1]))
 		if err != nil {
 			return err
 		}

@@ -17,6 +17,7 @@ package colexec
 import (
 	"context"
 	"fmt"
+	plan2 "github.com/matrixorigin/matrixone/pkg/sql/plan"
 	"math"
 
 	"github.com/matrixorigin/matrixone/pkg/common/moerr"
@@ -794,7 +795,7 @@ func generateConstExpressionExecutor(proc *process.Process, typ types.Type, con 
 				}
 				vec, err = vector.NewConstArray(typ, array, 1, proc.Mp())
 			} else if typ.Oid == types.T_datalink {
-				_, _, _, err1 := types.ParseDatalink(sval)
+				_, _, _, err1 := plan2.GetMoUrlFromDatalink(sval, proc)
 				if err1 != nil {
 					return nil, err1
 				}

@@ -18,6 +18,9 @@ import (
 	//"context"
 	"encoding/csv"
 	"fmt"
+	"path/filepath"
+	"strconv"
+
 	//"path"
 	"net/url"
 	"strings"
@@ -367,4 +370,78 @@ func InitInfileOrStageParam(param *tree.ExternParam, proc *process.Process) erro
 	}
 
 	return nil
+}
+
+func GetMoUrlFromDatalink(fpath string, proc *process.Process) (string, []int, string, error) {
+	u, err := url.Parse(fpath)
+	if err != nil {
+		return "", nil, "", err
+	}
+
+	// convert query parameters to map
+	urlParams := make(map[string]string)
+	for k, v := range u.Query() {
+		urlParams[strings.ToLower(k)] = strings.ToLower(v[0])
+	}
+	// set default values for offset and size if not provided
+	offsetSize := []int{0, -1}
+	if _, ok := urlParams["offset"]; ok {
+		if offsetSize[0], err = strconv.Atoi(urlParams["offset"]); err != nil {
+			return "", nil, "", err
+		}
+	}
+	if _, ok := urlParams["size"]; ok {
+		if offsetSize[1], err = strconv.Atoi(urlParams["size"]); err != nil {
+			return "", nil, "", err
+		}
+	}
+
+	var mopath string
+	switch u.Scheme {
+	case FILE_PROTOCOL:
+		// in: "file://a/b/c.txt"
+		// out: "/a/b/c.txt"
+		mopath = strings.TrimPrefix(fpath, FILE_PROTOCOL+"://")
+	case S3_PROTOCOL:
+		endpoint := "" // For S3 we don't need to pass endpoint to the File Service API.
+		region := urlParams["region"]
+		key := urlParams["key"]
+		secret := urlParams["secret"]
+
+		bucket := u.Host
+		urlPathTrimmed := strings.TrimPrefix(u.Path, "/")
+		urlPathParts := strings.Split(urlPathTrimmed, "/")
+		prefix := strings.Join(urlPathParts[:len(urlPathParts)-1], "/")
+		path := urlPathParts[len(urlPathParts)-1]
+
+		// in: s3://vector-test-data/prefix/path/img.png?region=us-east-2&key=xxx&secret=xxx&offset=0&size=-1
+		// out: "s3,endpoint,region,bucket,key,secret,prefix:a/b/c.txt"
+		mopath = strings.Join([]string{S3_PROTOCOL, endpoint, region, bucket, key, secret, prefix}, ",")
+		mopath = strings.Join([]string{mopath, path}, ":")
+
+	case STAGE_PROTOCOL:
+		stagemap, err := StageLoadCatalog(proc)
+		if err != nil {
+			return "", nil, "", err
+		}
+
+		s, err := urlToStageDef(fpath, stagemap, proc)
+		if err != nil {
+			return "", nil, "", err
+		}
+
+		mopath, _, err = s.ToPath()
+		if err != nil {
+			return "", nil, "", err
+		}
+	}
+
+	extension := filepath.Ext(u.Path)
+	switch extension {
+	case ".txt", ".csv":
+	default:
+		return "", nil, "", moerr.NewNYINoCtx("unsupported file type %s", extension)
+	}
+
+	return mopath, offsetSize, extension, nil
 }

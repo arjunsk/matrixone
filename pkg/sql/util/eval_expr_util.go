@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/matrixorigin/matrixone/pkg/sql/plan"
 	"go/constant"
 	"math"
 	"strconv"
@@ -666,7 +667,7 @@ func setInsertValueString(proc *process.Process, numVal *tree.NumVal, vec *vecto
 			}
 		}
 		if typ.Oid.IsDatalink() {
-			_, _, _, err2 := types.ParseDatalink(s)
+			_, _, _, err2 := plan.GetMoUrlFromDatalink(s, proc)
 			if err2 != nil {
 				return nil, err2
 			}
