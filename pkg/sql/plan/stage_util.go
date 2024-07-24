@@ -30,7 +30,8 @@ import (
 	"github.com/matrixorigin/matrixone/pkg/logutil"
 	"github.com/matrixorigin/matrixone/pkg/sql/parsers/tree"
 	"github.com/matrixorigin/matrixone/pkg/vm/process"
-
+	//"github.com/matrixorigin/matrixone/pkg/util/executor"
+	"github.com/matrixorigin/matrixone/pkg/container/vector"
 	"github.com/matrixorigin/matrixone/pkg/fileservice"
 )
 
@@ -129,11 +130,11 @@ func getS3ServiceFromProvider(provider string) (string, error) {
 
 func StageLoadCatalog(proc *process.Process) (stagemap map[StageKey]StageDef, err error) {
 	getAllStagesSql := fmt.Sprintf("select stage_id, stage_name, url, stage_credentials, stage_status, 'dbname' from `%s`.`%s`;", "mo_catalog", "mo_stages")
-	res, err := proc.GetSessionInfo().SqlHelper.ExecSql(getAllStagesSql)
-
+	res, err := runSql(proc, getAllStagesSql)
 	if err != nil {
 		return nil, err
 	}
+	defer res.Close()
 
 	stagemap = make(map[StageKey]StageDef)
 	const id_idx = 0
@@ -142,28 +143,29 @@ func StageLoadCatalog(proc *process.Process) (stagemap map[StageKey]StageDef, er
 	const cred_idx = 3
 	const status_idx = 4
 	const db_idx = 5
-	if res != nil {
-		for _, row := range res {
-			for i := 0; i < len(row); i++ {
-				stage_id := row[id_idx].(uint32)
-				stage_name := row[name_idx].(string)
-				stage_url, err := url.Parse(row[url_idx].(string))
-				if err != nil {
-					return nil, err
-				}
-				stage_cred := row[cred_idx].(string)
-				stage_status := row[status_idx].(string)
-				dbname := row[db_idx].(string)
-				disabled := false
-				if stage_status == "disabled" {
-					disabled = true
-				}
+	if res.Batches != nil {
+		for _, batch := range res.Batches {
+			if batch != nil && batch.Vecs[0] != nil && batch.Vecs[0].Length() > 0 {
+				for i := 0; i < batch.Vecs[0].Length(); i++ {
+					stage_id := vector.GetFixedAt[uint32](batch.Vecs[id_idx], i)
+					stage_name := string(batch.Vecs[name_idx].GetBytesAt(i))
+					stage_url, err := url.Parse(string(batch.Vecs[url_idx].GetBytesAt(i)))
+					if err != nil {
+						return nil, err
+					}
+					stage_cred := string(batch.Vecs[cred_idx].GetBytesAt(i))
+					stage_status := string(batch.Vecs[status_idx].GetBytesAt(i))
+					dbname := string(batch.Vecs[db_idx].GetBytesAt(i))
+					disabled := false
+					if stage_status == "disabled" {
+						disabled = true
+					}
 
-				key := StageKey{dbname, stage_name}
-				stagemap[key] = StageDef{stage_id, stage_name, dbname, stage_url, stage_cred, disabled}
-				logutil.Infof("CATALOG: ID %d,  stage %s url %s cred %s", stage_id, stage_name, stage_url, stage_cred)
+					key := StageKey{dbname, stage_name}
+					stagemap[key] = StageDef{stage_id, stage_name, dbname, stage_url, stage_cred, disabled}
+					logutil.Infof("CATALOG: ID %d,  stage %s url %s cred %s", stage_id, stage_name, stage_url, stage_cred)
+				}
 			}
-
 		}
 	}
 
