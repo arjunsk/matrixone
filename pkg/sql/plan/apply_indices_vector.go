@@ -77,6 +77,7 @@ func (builder *QueryBuilder) applyIndicesForSortUsingVectorIndex(nodeID int32, p
 	idxTags["meta.scan"] = builder.genNewTag()
 	idxTags["centroids.scan"] = builder.genNewTag()
 	idxTags["entries.scan"] = builder.genNewTag()
+	idxTags["entries.join"] = builder.genNewTag()
 	// TODO: plan node should hold snapshot info and account info
 	//idxObjRefs[0], idxTableDefs[0] = builder.compCtx.Resolve(scanNode.ObjRef.SchemaName, multiTableIndexWithSortDistFn.IndexDefs[catalog.SystemSI_IVFFLAT_TblType_Metadata].IndexTableName, *scanNode.ScanTS)
 	//idxObjRefs[1], idxTableDefs[1] = builder.compCtx.Resolve(scanNode.ObjRef.SchemaName, multiTableIndexWithSortDistFn.IndexDefs[catalog.SystemSI_IVFFLAT_TblType_Centroids].IndexTableName, *scanNode.ScanTS)
@@ -143,11 +144,31 @@ func (builder *QueryBuilder) applyIndicesForSortUsingVectorIndex(nodeID int32, p
 
 			// 3.a.2 If all the columns in the projection are present in Index Table or Constants, then use Index Tables only.
 			if useIndexTablesOnly {
+				/*
+					This is the test data
+
+					create database a;
+					use a;
+					create table tbl(a int primary key, b vecf32(3));
+					insert into tbl values(1, "[1,2,3]");
+					insert into tbl values(2, "[1,2,4]");
+					insert into tbl values(3, "[1,2.4,4]");
+					insert into tbl values(4, "[1,2,5]");
+					insert into tbl values(5, "[1,3,5]");
+					insert into tbl values(6, "[100,44,50]");
+					insert into tbl values(7, "[100,44,50]");
+					insert into tbl values(8, "[130,40,90]");
+					SET GLOBAL experimental_ivf_index = 1;
+					create index idx using ivfflat on tbl(b) lists=2 op_type "vector_l2_ops";
+					explain analyze select a from tbl order by l2_distance(b, "[1,1,1]") limit 3;
+
+					SQL Error [1064] [42000]: SQL parser error: can't find column [11 2] in context's map { [10 3] }
+				*/
 				idxColMap[[2]int32{scanNode.BindingTags[0], pkPos}] = &plan.Expr{
 					Typ: idxTableDefs[2].Cols[2].Typ,
 					Expr: &plan.Expr_Col{
 						Col: &plan.ColRef{
-							RelPos: idxTags["entries.scan"],
+							RelPos: idxTags["entries.join"],
 							ColPos: 2, // entries.pk
 						},
 					},
@@ -156,7 +177,7 @@ func (builder *QueryBuilder) applyIndicesForSortUsingVectorIndex(nodeID int32, p
 					Typ: idxTableDefs[2].Cols[3].Typ,
 					Expr: &plan.Expr_Col{
 						Col: &plan.ColRef{
-							RelPos: idxTags["entries.scan"],
+							RelPos: idxTags["entries.join"],
 							ColPos: 3, // entries.entry
 						},
 					},
@@ -381,8 +402,47 @@ func makeEntriesCrossJoinCentroidsOnCentroidId(builder *QueryBuilder, bindCtx *B
 	joinEntriesAndCentroids := builder.appendNode(&plan.Node{
 		NodeType: plan.Node_JOIN,
 		JoinType: plan.Node_SEMI,
-		Children: []int32{entries, centroidsForCurrVersion},
-		OnList:   onList,
+		ProjectList: []*Expr{
+			{
+				Typ: idxTableDefs[2].Cols[0].Typ,
+				Expr: &plan.Expr_Col{
+					Col: &plan.ColRef{
+						RelPos: idxTags["entries.scan"],
+						ColPos: 0, // entries.__mo_version
+					},
+				},
+			},
+			{
+				Typ: idxTableDefs[2].Cols[1].Typ,
+				Expr: &plan.Expr_Col{
+					Col: &plan.ColRef{
+						RelPos: idxTags["entries.scan"],
+						ColPos: 1, // entries.__mo_index_centroid_fk_id
+					},
+				},
+			},
+			{
+				Typ: idxTableDefs[2].Cols[2].Typ,
+				Expr: &plan.Expr_Col{
+					Col: &plan.ColRef{
+						RelPos: idxTags["entries.scan"],
+						ColPos: 2, // entries.origin_pk
+					},
+				},
+			},
+			{
+				Typ: idxTableDefs[2].Cols[3].Typ,
+				Expr: &plan.Expr_Col{
+					Col: &plan.ColRef{
+						RelPos: idxTags["entries.scan"],
+						ColPos: 3, // entries.embedding
+					},
+				},
+			},
+		},
+		Children:    []int32{entries, centroidsForCurrVersion},
+		BindingTags: []int32{idxTags["entries.join"]},
+		OnList:      onList,
 	}, bindCtx)
 
 	return joinEntriesAndCentroids
@@ -444,7 +504,7 @@ func makeTblInnerJoinEntriesCentroidOnPK(builder *QueryBuilder, bindCtx *BindCon
 			Typ: idxTableDefs[2].Cols[2].Typ,
 			Expr: &plan.Expr_Col{
 				Col: &plan.ColRef{
-					RelPos: idxTags["entries.scan"],
+					RelPos: idxTags["entries.join"],
 					ColPos: 2, // entries.origin_pk
 				},
 			},
@@ -506,7 +566,7 @@ func makeInnerJoinOrderByL2Distance(builder *QueryBuilder, bindCtx *BindContext,
 			Typ: idxTableDefs[2].Cols[3].Typ,
 			Expr: &plan.Expr_Col{
 				Col: &plan.ColRef{
-					RelPos: idxTags["entries.scan"],
+					RelPos: idxTags["entries.join"],
 					ColPos: 3, // entries.entry
 				},
 			},
