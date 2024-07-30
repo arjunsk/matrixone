@@ -20,6 +20,7 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -564,6 +565,38 @@ func LoadFile(ivecs []*vector.Vector, result vector.FunctionResultWrapper, proc 
 	if err = rs.AppendBytes(ctx, false); err != nil {
 		return err
 	}
+	return nil
+}
+
+func builtInTokenize(parameters []*vector.Vector, result vector.FunctionResultWrapper, proc *process.Process, length int, selectList *FunctionSelectList) error {
+	source := vector.GenerateFunctionStrParameter(parameters[0])
+	format, _ := vector.GenerateFunctionStrParameter(parameters[1]).GetStrValue(0)
+	rs := vector.MustFunctionResult[types.Varlena](result)
+
+	rowCount := uint64(length)
+	for i := uint64(0); i < rowCount; i++ {
+		data, null := source.GetStrValue(i)
+		if null {
+			return rs.AppendMustNullForBytesResult()
+		}
+
+		// convert []byte to string
+		str := functionUtil.QuickBytesToStr(data)
+
+		// tokenize
+		tokens, err := functionUtil.Tokenize(str, functionUtil.QuickBytesToStr(format), map[string]bool{})
+		if err != nil {
+			return err
+		}
+
+		// convert it to json string and then to []byte
+		jsonBytes, err := json.Marshal(tokens)
+		err = rs.AppendMustBytesValue(jsonBytes)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

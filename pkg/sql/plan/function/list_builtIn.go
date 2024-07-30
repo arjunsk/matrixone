@@ -5510,6 +5510,28 @@ var supportedOthersBuiltIns = []FuncNew{
 		},
 	},
 
+	// function `tokenize`
+	{
+		functionId: TOKENIZE,
+		class:      plan.Function_STRICT,
+		layout:     STANDARD_FUNCTION,
+		checkFn:    fixedTypeMatch,
+
+		Overloads: []overload{
+			{
+				overloadId: 0,
+				volatile:   true,
+				args:       []types.T{types.T_varchar, types.T_varchar},
+				retType: func(parameters []types.Type) types.Type {
+					return types.T_varchar.ToType()
+				},
+				newOp: func() executeLogicOfOverload {
+					return builtInTokenize
+				},
+			},
+		},
+	},
+
 	// function `mo_memory_usage`
 	{
 		functionId: MO_MEMORY_USAGE,
