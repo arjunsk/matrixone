@@ -17,6 +17,7 @@ package compile
 import (
 	"context"
 	"fmt"
+	productapply "github.com/matrixorigin/matrixone/pkg/sql/colexec/product_apply"
 
 	"github.com/matrixorigin/matrixone/pkg/sql/colexec/productl2"
 	"github.com/matrixorigin/matrixone/pkg/sql/colexec/table_scan"
@@ -298,6 +299,14 @@ func dupOperator(sourceOp vm.Operator, regMap map[*process.WaitRegister]*process
 		op.Result = t.Result
 		op.Typs = t.Typs
 		op.OnExpr = t.OnExpr
+		op.SetInfo(&info)
+		return op
+	case vm.ProductApply:
+		t := sourceOp.(*productapply.ProductApply)
+		op := productapply.NewArgument()
+		op.Result = t.Result
+		op.Typs = t.Typs
+		op.IsShuffle = t.IsShuffle
 		op.SetInfo(&info)
 		return op
 	case vm.Projection:
@@ -1753,6 +1762,13 @@ func constructHashBuild(op vm.Operator, proc *process.Process, isDup bool) *hash
 		ret.NeedAllocateSels = true
 	case vm.ProductL2:
 		arg := op.(*productl2.Productl2)
+		ret.NeedHashMap = false
+		ret.Typs = arg.Typs
+		ret.IsDup = isDup
+		ret.NeedMergedBatch = true
+		ret.NeedAllocateSels = true
+	case vm.ProductApply:
+		arg := op.(*productapply.ProductApply)
 		ret.NeedHashMap = false
 		ret.Typs = arg.Typs
 		ret.IsDup = isDup

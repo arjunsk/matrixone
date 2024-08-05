@@ -16,6 +16,7 @@ package compile
 
 import (
 	"fmt"
+	productapply "github.com/matrixorigin/matrixone/pkg/sql/colexec/product_apply"
 	"unsafe"
 
 	"github.com/matrixorigin/matrixone/pkg/sql/colexec/productl2"
@@ -1081,6 +1082,13 @@ func convertToVmOperator(opr *pipeline.Instruction, ctx *scopeContext, eng engin
 		arg.Result = convertToResultPos(t.RelList, t.ColList)
 		arg.Typs = convertToTypes(t.Types)
 		arg.OnExpr = t.Expr
+		op = arg
+	case vm.ProductApply:
+		t := opr.GetProductApply()
+		arg := productapply.NewArgument()
+		arg.Result = convertToResultPos(t.RelList, t.ColList)
+		arg.Typs = convertToTypes(t.Types)
+		arg.IsShuffle = t.IsShuffle
 		op = arg
 	case vm.Projection:
 		arg := projection.NewArgument()

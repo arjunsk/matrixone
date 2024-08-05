@@ -322,6 +322,13 @@ message ProductL2 {
   plan.Expr  expr = 4;
 }
 
+message ProductApply {
+  repeated int32 rel_list = 1;
+  repeated int32 col_list = 2;
+  repeated plan.Type  types = 3 [(gogoproto.nullable) = false];
+  bool is_shuffle =4;
+}
+
 message IndexJoin {
   repeated int32 result = 1;
   repeated plan.Type  types = 2 [(gogoproto.nullable) = false];
@@ -435,6 +442,7 @@ message Instruction{
   ProductL2 product_l2 = 44;
   TableScan table_scan = 45;
   ValueScan value_scan = 46;
+  ProductApply product_apply = 47;
 }
 
 message AnalysisList {

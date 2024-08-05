@@ -107,6 +107,7 @@ const (
 
 	Sample
 	ProductL2
+	ProductApply
 )
 
 type Operator interface {
