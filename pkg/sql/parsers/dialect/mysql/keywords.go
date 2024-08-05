@@ -113,6 +113,7 @@ func init() {
 		"cluster":                    CLUSTER,
 		"cross":                      CROSS,
 		"cross_l2":                   CROSS_L2,
+		"cross_apply":                CROSS_APPLY,
 		"current_date":               CURRENT_DATE,
 		"current_time":               CURRENT_TIME,
 		"current_timestamp":          CURRENT_TIMESTAMP,

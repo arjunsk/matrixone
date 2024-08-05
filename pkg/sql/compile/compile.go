@@ -2675,6 +2675,13 @@ func (c *Compile) compileBroadcastJoin(node, left, right *plan.Node, ns []*plan.
 			op.SetIdx(c.anal.curr)
 			rs[i].setRootOperator(op)
 		}
+	case plan.Node_CROSS_APPLY:
+		rs = c.newBroadcastJoinScopeList(probeScopes, buildScopes, node)
+		for i := range rs {
+			op := constructProductApply(node, rightTyps, c.proc)
+			op.SetIdx(c.anal.curr)
+			rs[i].setRootOperator(op)
+		}
 
 	case plan.Node_INDEX:
 		rs = c.newBroadcastJoinScopeList(probeScopes, buildScopes, node)

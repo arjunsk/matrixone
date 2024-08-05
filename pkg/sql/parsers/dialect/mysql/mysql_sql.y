@@ -275,7 +275,7 @@ import (
 %token <str> VALUES
 %token <str> NEXT VALUE SHARE MODE
 %token <str> SQL_NO_CACHE SQL_CACHE
-%left <str> JOIN STRAIGHT_JOIN LEFT RIGHT INNER OUTER CROSS NATURAL USE FORCE CROSS_L2
+%left <str> JOIN STRAIGHT_JOIN LEFT RIGHT INNER OUTER CROSS NATURAL USE FORCE CROSS_L2 CROSS_APPLY
 %nonassoc LOWER_THAN_ON
 %nonassoc <str> ON USING
 %left <str> SUBQUERY_AS_EXPR
@@ -5558,6 +5558,11 @@ inner_join:
     {
         $$ = tree.JOIN_TYPE_CROSS_L2
     }
+|   CROSS_APPLY JOIN
+    {
+        $$ = tree.JOIN_TYPE_CROSS_APPLY
+    }
+
 
 join_condition_opt:
     %prec JOIN

@@ -1503,6 +1503,17 @@ func constructProductL2(n *plan.Node, typs []types.Type, proc *process.Process) 
 	return arg
 }
 
+func constructProductApply(n *plan.Node, typs []types.Type, proc *process.Process) *productapply.ProductApply {
+	result := make([]colexec.ResultPos, len(n.ProjectList))
+	for i, expr := range n.ProjectList {
+		result[i].Rel, result[i].Pos = constructJoinResult(expr, proc)
+	}
+	arg := productapply.NewArgument()
+	arg.Typs = typs
+	arg.Result = result
+	return arg
+}
+
 func constructLoopJoin(n *plan.Node, typs []types.Type, proc *process.Process) *loopjoin.LoopJoin {
 	result := make([]colexec.ResultPos, len(n.ProjectList))
 	for i, expr := range n.ProjectList {

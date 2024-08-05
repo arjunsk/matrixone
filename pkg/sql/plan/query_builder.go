@@ -3945,6 +3945,8 @@ func (builder *QueryBuilder) buildJoinTable(tbl *tree.JoinTableExpr, ctx *BindCo
 		joinType = plan.Node_INNER
 	case tree.JOIN_TYPE_CROSS_L2:
 		joinType = plan.Node_L2
+	case tree.JOIN_TYPE_CROSS_APPLY:
+		joinType = plan.Node_CROSS_APPLY
 	case tree.JOIN_TYPE_LEFT, tree.JOIN_TYPE_NATURAL_LEFT:
 		joinType = plan.Node_LEFT
 	case tree.JOIN_TYPE_RIGHT, tree.JOIN_TYPE_NATURAL_RIGHT:
@@ -3972,8 +3974,8 @@ func (builder *QueryBuilder) buildJoinTable(tbl *tree.JoinTableExpr, ctx *BindCo
 	ctx.views = append(ctx.views, rightCtx.views...)
 
 	if builder.qry.Nodes[rightChildID].NodeType == plan.Node_FUNCTION_SCAN {
-		if joinType != plan.Node_INNER {
-			return 0, moerr.NewSyntaxError(builder.GetContext(), "table function can only be used in a inner join")
+		if joinType != plan.Node_INNER && joinType != plan.Node_CROSS_APPLY {
+			return 0, moerr.NewSyntaxError(builder.GetContext(), "table function can only be used in a inner or cross_apply join")
 		}
 	}
 

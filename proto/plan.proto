@@ -734,6 +734,7 @@ message Node {
 		APPLY	= 8;
 		INDEX = 9;
 		L2 = 10;
+		CROSS_APPLY=11;
 	}
 
 	enum AggMode {
