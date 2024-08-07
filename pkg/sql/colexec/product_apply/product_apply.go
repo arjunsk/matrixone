@@ -16,7 +16,7 @@ package productapply
 
 import (
 	"bytes"
-
+	"github.com/matrixorigin/matrixone/pkg/container/vector"
 	"github.com/matrixorigin/matrixone/pkg/sql/colexec"
 
 	"github.com/matrixorigin/matrixone/pkg/container/batch"
@@ -135,23 +135,35 @@ func (ctr *container) probe(ap *ProductApply, proc *process.Process, anal proces
 			ctr.rbat.Vecs[i] = proc.GetVector(*ctr.bat.Vecs[rp.Pos].GetType())
 		}
 	}
-	count := ctr.inBat.RowCount()
-	count2 := ctr.bat.RowCount()
+	firstBatchCount := ctr.inBat.RowCount()
+	secondBatchCount := ctr.bat.RowCount()
 	var i, j int
-	for j = ctr.probeIdx; j < count2; j++ {
-		for i = 0; i < count; i++ {
+
+	for i = 0; i < firstBatchCount; i++ {
+		maxRowCount := 0
+		for j = ctr.probeIdx; j < secondBatchCount; j++ {
 			for k, rp := range ap.Result {
-				if rp.Rel == 0 {
-					if err := ctr.rbat.Vecs[k].UnionOne(ctr.inBat.Vecs[rp.Pos], int64(i), proc.Mp()); err != nil {
-						return err
+				if rp.Rel == 1 {
+					if ctr.bat.Vecs[rp.Pos].Length() > maxRowCount {
+						maxRowCount = ctr.bat.Vecs[rp.Pos].Length()
 					}
-				} else {
 					if err := ctr.rbat.Vecs[k].UnionOne(ctr.bat.Vecs[rp.Pos], int64(j), proc.Mp()); err != nil {
 						return err
 					}
 				}
 			}
 		}
+		for k, rp := range ap.Result {
+			if rp.Rel == 0 {
+				typ := *ctr.inBat.Vecs[rp.Pos].GetType()
+				constSetFn := vector.GetConstSetFunction(typ, proc.Mp())
+				if err := constSetFn(ctr.rbat.Vecs[k], ctr.inBat.Vecs[rp.Pos], int64(i), maxRowCount); err != nil {
+					return err
+				}
+			}
+		}
+
+		// TODO: need to see where we can add this code.
 		if ctr.rbat.Vecs[0].Length() >= colexec.DefaultBatchSize {
 			anal.Output(ctr.rbat, isLast)
 			result.Batch = ctr.rbat
