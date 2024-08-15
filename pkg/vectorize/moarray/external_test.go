@@ -20,6 +20,49 @@ import (
 	"testing"
 )
 
+func TestL2DistanceSq(t *testing.T) {
+	type args struct {
+		argLeftF32  [][]float32
+		argRightF32 [][]float32
+
+		argLeftF64  [][]float64
+		argRightF64 [][]float64
+	}
+	type testCase struct {
+		name string
+		args args
+		want []float64
+	}
+	tests := []testCase{
+		{
+			name: "Test1 - float32",
+			args: args{argLeftF32: [][]float32{{0, 0, 0}, {0, 0, 0}}, argRightF32: [][]float32{{3, 4, 0}, {3, 4, 0}}},
+			want: []float64{25, 25},
+		},
+		{
+			name: "Test2 - float64",
+			args: args{argLeftF64: [][]float64{{0, 0, 0}, {0, 0, 0}}, argRightF64: [][]float64{{3, 4, 0}, {3, 4, 0}}},
+			want: []float64{25, 25},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			if tt.args.argLeftF32 != nil {
+				if gotRes, _ := L2DistanceSqBatch[float32](tt.args.argLeftF32, tt.args.argRightF32); !assertx.InEpsilonF64Slice(tt.want, gotRes) {
+					t.Errorf("L2Distance() = %v, want %v", gotRes, tt.want)
+				}
+			}
+			if tt.args.argLeftF64 != nil {
+				if gotRes, _ := L2DistanceSqBatch[float64](tt.args.argLeftF64, tt.args.argRightF64); !assertx.InEpsilonF64Slice(tt.want, gotRes) {
+					t.Errorf("L2Distance() = %v, want %v", gotRes, tt.want)
+				}
+			}
+
+		})
+	}
+}
+
 func TestAdd(t *testing.T) {
 	type args struct {
 		leftArgF32  []float32
