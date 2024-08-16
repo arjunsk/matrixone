@@ -1,7 +1,7 @@
 DEBUG_OPT :=
 OPT_LV := -O3
-CFLAGS=-std=c99 -g ${OPT_LV} -Wall -Werror
-OBJS=mo.o arith.o compare.o logic.o
+CFLAGS=-std=c99 ${OPT_LV} -Wall -Werror -O3 -funroll-loops -ftree-vectorize -ffast-math
+OBJS=mo.o arith.o compare.o logic.o array.o
 
 all: libmo.a
 

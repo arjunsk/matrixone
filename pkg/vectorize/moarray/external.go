@@ -14,12 +14,21 @@
 
 package moarray
 
+/*
+#include "array.c"
+
+#cgo CFLAGS: -I../../../cgo
+#cgo LDFLAGS: -L../../../cgo -lmo -lm
+*/
+import "C"
 import (
+	"fmt"
 	"github.com/matrixorigin/matrixone/pkg/common/moerr"
 	"github.com/matrixorigin/matrixone/pkg/container/types"
 	"github.com/matrixorigin/matrixone/pkg/vectorize/momath"
 	"gonum.org/v1/gonum/mat"
 	"math"
+	"unsafe"
 )
 
 // These functions are exposed externally via SQL API.
@@ -121,19 +130,26 @@ func L2Distance[T types.RealNumbers](v1, v2 []T) (float64, error) {
 	return math.Sqrt(float64(sumOfSquares)), nil
 }
 
-// L2DistanceSq returns the squared L2 distance between two vectors.
-// It is an optimized version of L2Distance used in Index Scan
-func L2DistanceSq[T types.RealNumbers](v1, v2 []T) (float64, error) {
-	if len(v1) != len(v2) {
-		return 0, moerr.NewArrayInvalidOpNoCtx(len(v1), len(v2))
+// L2DistanceSq calculates the squared L2 distance between two vectors using CGO and generics.
+func L2DistanceSq[T types.RealNumbers](ax, bx []T) (float64, error) {
+	if len(ax) != len(bx) {
+		return 0, fmt.Errorf("vectors must be of the same length")
 	}
-	var sumOfSquares T
-	var difference T
-	for i := range v1 {
-		difference = v1[i] - v2[i]
-		sumOfSquares += difference * difference
+
+	switch any(ax).(type) {
+	case []float32:
+		cAx := (*C.float)(unsafe.Pointer(&ax[0]))
+		cBx := (*C.float)(unsafe.Pointer(&bx[0]))
+		dim := C.int(len(ax))
+		return float64(C.L2DistanceSqFloat32(dim, cAx, cBx)), nil
+	case []float64:
+		cAx := (*C.double)(unsafe.Pointer(&ax[0]))
+		cBx := (*C.double)(unsafe.Pointer(&bx[0]))
+		dim := C.int(len(ax))
+		return float64(C.L2DistanceSqFloat64(dim, cAx, cBx)), nil
+	default:
+		return 0, fmt.Errorf("unsupported element type %T", ax)
 	}
-	return float64(sumOfSquares), nil
 }
 
 func CosineDistance[T types.RealNumbers](v1, v2 []T) (float64, error) {
